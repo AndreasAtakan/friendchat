@@ -38,7 +38,6 @@ library.module = library.module || {};
 		
 		self.identity = null;
 		self.contacts = {};
-		self.messageMap = null;
 		self.updateMap = null;
 		self.conn = null;
 		self.view = null;
@@ -62,19 +61,23 @@ library.module = library.module || {};
 	ns.BaseModule.prototype.initBaseModule = function() {
 		const self = this;
 		// server stuff
-		self.conn = new library.system.Message({
-			id : self.clientId,
-			handler : receiveMsg
-		});
+		self.conn = new library.system.EventNode(
+			self.clientId,
+			hello.conn,
+			eventSink
+		);
 		
-		function receiveMsg( msg ) { self.receiveMsg( msg ); }
+		function eventSink( type, data ) {
+			console.log( 'BaseModule - conn eventSink', {
+				type : type,
+				data : data,
+			});
+		}
 		
-		self.messageMap = {
-			'initstate' : initState,
-			'connection' : connection,
-			'settings' : showSettings,
-			'setting' : updateSetting,
-		};
+		self.conn.on( 'initstate', initState );
+		self.conn.on( 'connection', connection );
+		self.conn.on( 'settings', settings );
+		self.conn.on( 'setting', updateSetting );
 		
 		function initState( msg ) { self.initializeState( msg ); }
 		function connection( msg ) { self.connection( msg ); }
@@ -110,20 +113,6 @@ library.module = library.module || {};
 		self.updateMap = {};
 		self.setName();
 		self.setIdentity();
-	}
-	
-	ns.BaseModule.prototype.receiveMsg = function( msg ) {
-		const self = this;
-		var handler = self.messageMap[ msg.type ];
-		if ( !handler ) {
-			console.log( 'app.BaseModule.receiveMsg - no handler for', {
-				msg : msg,
-				handlers : self.messageMap,
-			});
-			return;
-		}
-		
-		handler( msg.data );
 	}
 	
 	ns.BaseModule.prototype.initialize = function() {
@@ -513,16 +502,16 @@ library.module = library.module || {};
 			self.module.settings.identity
 		
 		// server
-		self.messageMap[ 'initialize' ] = initialize;
-		self.messageMap[ 'login' ] = loginChallenge;
-		self.messageMap[ 'password' ] = passChallenge;
-		self.messageMap[ 'account' ] = handleAccount;
-		self.messageMap[ 'identity' ] = handleIdentity;
-		self.messageMap[ 'invite' ] = handleInvite;
-		self.messageMap[ 'rooms' ] = setupRooms;
-		self.messageMap[ 'join' ] = joinedRoom;
-		self.messageMap[ 'close' ] = roomClosed;
-		self.messageMap[ 'clear' ] = clear;
+		self.conn.on( 'initialize', initialize );
+		self.conn.on( 'login', loginChallenge );
+		self.conn.on( 'password', passChallenge );
+		self.conn.on( 'account', handleAccount );
+		self.conn.on( 'identity', handleIdentity );
+		self.conn.on( 'invite', handleInvite );
+		self.conn.on( 'rooms', setupRooms );
+		self.conn.on( 'join', joinedRoom );
+		self.conn.on( 'close', roomClosed );
+		self.conn.on( 'clear', clear );
 		
 		function initialize( e ) { self.handleInitialize( e ); }
 		function loginChallenge( e ) { self.loginChallenge( e ); }
@@ -863,6 +852,7 @@ library.module = library.module || {};
 		const roomConf = {
 			moduleId   : self.clientId,
 			room       : conf,
+			parentConn : self.conn,
 			parentView : self.parentView,
 			host       : host,
 			user       : self.identity,
@@ -1019,13 +1009,13 @@ library.module = library.module || {};
 	
 	ns.Treeroot.prototype.init = function() {
 		const self = this;
-		self.messageMap[ 'account' ] = updateAccount;
-		self.messageMap[ 'contact' ] = contactEvent;
-		self.messageMap[ 'subscription' ] = subscription;
-		self.messageMap[ 'register' ] = registerResponse;
-		self.messageMap[ 'userlist' ] = addUserList;
-		self.messageMap[ 'keyexchange'] = keyExchangeHandler;
-		self.messageMap[ 'pass-ask-auth' ] = passAskAuth;
+		self.conn.on( 'account', updateAccount );
+		self.conn.on( 'contact', contactEvent );
+		self.conn.on( 'subscription', subscription );
+		self.conn.on( 'register', registerResponse );
+		self.conn.on( 'userlist', addUserList );
+		self.conn.on( 'keyexchange', keyExchangeHandler );
+		self.conn.on( 'pass-ask-auth', passAskAuth );
 		
 		function updateAccount( e ) { self.updateAccount( e ); }
 		function contactEvent( e ) { self.contactEvent( e ); }
@@ -1547,13 +1537,14 @@ library.module = library.module || {};
 			return;
 		
 		var conf = {
-			moduleId : self.clientId,
+			moduleId   : self.clientId,
+			parentConn : self.conn,
 			parentView : self.parentView,
 			parentPath : self.dormantParentPath,
-			contact : contact,
-			msgCrypto : !!self.module.settings.msgCrypto,
-			encrypt : encrypt,
-			decrypt : decrypt,
+			contact    : contact,
+			msgCrypto  : !!self.module.settings.msgCrypto,
+			encrypt    : encrypt,
+			decrypt    : decrypt,
 		};
 		
 		function encrypt( e ) {
@@ -1659,7 +1650,8 @@ library.module = library.module || {};
 		}
 		
 		var conf = {
-			moduleId : self.clientId,
+			moduleId   : self.clientId,
+			parentConn : self.conn,
 			parentView : self.parentView,
 			subscriber : subscription,
 		};
@@ -1958,15 +1950,15 @@ library.module = library.module || {};
 	
 	ns.IRC.prototype.init = function() {
 		const self = this;
-		self.messageMap[ 'message' ] = consoleMsg;
-		self.messageMap[ 'identity' ] = identityChange;
-		self.messageMap[ 'join' ] = join;
-		self.messageMap[ 'leave' ] = leave;
-		self.messageMap[ 'private' ] = privateChat;
-		self.messageMap[ 'nick' ] = nickChange;
-		self.messageMap[ 'quit' ] = quit;
-		self.messageMap[ 'clear' ] = clearTargets;
-		self.messageMap[ 'disconnect' ] = clientDisconnect;
+		self.conn.on( 'message', consoleMsg );
+		self.conn.on( 'identity', identityChange );
+		self.conn.on( 'join', join );
+		self.conn.on( 'leave', leave );
+		self.conn.on( 'private', privateChat );
+		self.conn.on( 'nick', nickChange );
+		self.conn.on( 'quit', quit );
+		self.conn.on( 'clear', clearTargets );
+		self.conn.on( 'disconnect', clientDisconnect );
 		
 		function consoleMsg( e ) { self.consoleMessage( e ); }
 		function identityChange( e ) { self.identityChange( e ); }
@@ -2199,11 +2191,12 @@ library.module = library.module || {};
 		}
 		
 		var conf = {
-			moduleId : self.clientId,
+			moduleId   : self.clientId,
+			parentConn : self.conn,
 			parentView : self.parentView,
-			user : self.identity,
-			channel : channel,
-			viewTheme : self.module.settings.ircTheme,
+			user       : self.identity,
+			channel    : channel,
+			viewTheme  : self.module.settings.ircTheme,
 		};
 		
 		var chanObj = new library.contact.IrcChannel( conf );
@@ -2336,11 +2329,12 @@ library.module = library.module || {};
 	ns.IRC.prototype.createPrivateChat = function( contact, forceOpen ) {
 		const self = this;
 		var conf = {
-			moduleId : self.clientId,
+			moduleId   : self.clientId,
+			parentConn : self.conn,
 			parentView : self.parentView,
-			contact : contact,
-			user : self.identity,
-			viewTheme : self.module.settings.ircTheme,
+			contact    : contact,
+			user       : self.identity,
+			viewTheme  : self.module.settings.ircTheme,
 		};
 		
 		var privObj = new library.contact.IrcPrivMsg( conf );

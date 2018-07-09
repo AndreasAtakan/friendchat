@@ -39,15 +39,35 @@ library.contact = library.contact || {};
 		self.view = null;
 		self.chat = null;
 		self.live = null;
-		self.messageMap = {};
 		self.chatCrypts = {};
 		self.encryptMessages = false;
 		
-		self.contactInit( conf.parentView );
+		self.contactInit( conf.parentConn, conf.parentView );
 	}
 	
-	ns.Contact.prototype.contactInit = function( parentView ) {
+	ns.Contact.prototype.contactInit = function( parentConn, parentView ) {
 		var self = this;
+		self.conn = new library.system.EventNode(
+			self.clientId,
+			parentNode,
+			eventSink
+		);
+		function eventSink( type, data ) {
+			console.log( 'Contact.eventSink', {
+				type : type,
+				data : data,
+			});
+		}
+		
+		self.conn.on( 'log', log );
+		self.conn.on( 'message', message );
+		self.conn.on( 'notification', notification );
+		self.conn.on( 'viewtheme', updateViewTheme );
+		
+		function log( msg ) { self.handleLog( msg ); }
+		function message( msg ) { self.doMessageIntercept( msg ); }
+		function notification( msg ) { self.handleNotification( msg ); }
+		function updateViewTheme( msg ) { self.updateViewTheme( msg ); }
 		
 		self.interceptTypes = {
 			'live-invite'    : Application.i18n( 'i18n_live_invite' ),
@@ -62,24 +82,6 @@ library.contact = library.contact || {};
 		function startLive( event, from, msg ) { self.startLive( event, from, msg ); }
 		function addCalendarEvent( event, from ) { self.addCalendarEvent( event, from ); }
 		
-		self.messageMap = {
-			'log' : log,
-			'message' : message,
-			'notification' : notification,
-			'viewtheme' : updateViewTheme,
-		};
-		
-		function log( msg ) { self.handleLog( msg ); }
-		function message( msg ) { self.doMessageIntercept( msg ); }
-		function notification( msg ) { self.handleNotification( msg ); }
-		function updateViewTheme( msg ) { self.updateViewTheme( msg ); }
-		
-		self.conn = new library.system.Message({
-			id : self.clientId,
-			parent : self.moduleId,
-			handler : receiveMsg,
-		});
-		function receiveMsg( msg ) { self.receiveMsg( msg ); }
 		
 		self.view = new library.component.SubView({
 			parent : parentView,
@@ -97,17 +99,6 @@ library.contact = library.contact || {};
 			name : null,
 			avatar : null,
 		};
-	}
-	
-	ns.Contact.prototype.receiveMsg = function( msg ) {
-		var self = this;
-		var handler = self.messageMap[ msg.type ];
-		if( !handler ) {
-			console.log( 'unknown message type', msg );
-			return;
-		}
-		
-		handler( msg.data );
 	}
 	
 	ns.Contact.prototype.doMessageIntercept = function( data ) {
@@ -468,10 +459,6 @@ library.contact = library.contact || {};
 	
 	ns.Contact.prototype.send = function( msg ) {
 		var self = this;
-		var wrap = {
-			type : self.clientId,
-			data : msg,
-		};
 		self.conn.send( wrap );
 	}
 	
@@ -616,20 +603,20 @@ library.contact = library.contact || {};
 	
 	ns.PresenceRoom.prototype.init = function() {
 		var self = this;
-		self.messageMap[ 'initialize' ] = init;
-		self.messageMap[ 'persistent' ] = persistent;
-		self.messageMap[ 'settings' ] = settings;
-		self.messageMap[ 'identity' ] = identity;
-		self.messageMap[ 'authed' ] = authed;
-		self.messageMap[ 'workgroup'] = workgroup;
-		self.messageMap[ 'invite' ] = invite;
-		self.messageMap[ 'name' ] = roomName;
-		self.messageMap[ 'join' ] = userJoin;
-		self.messageMap[ 'leave' ] = userLeave;
-		self.messageMap[ 'live' ] = live;
-		self.messageMap[ 'chat' ] = chat;
-		self.messageMap[ 'online' ] = online;
-		self.messageMap[ 'offline' ] = offline;
+		self.conn.on( 'initialize', init );
+		self.conn.on( 'persistent', persistent );
+		self.conn.on( 'settings', settings );
+		self.conn.on( 'identity', identity );
+		self.conn.on( 'authed', authed );
+		self.conn.on( 'workgroup', workgroup );
+		self.conn.on( 'invite', invite );
+		self.conn.on( 'name', roomName );
+		self.conn.on( 'join', userJoin );
+		self.conn.on( 'leave', userLeave );
+		self.conn.on( 'live', live );
+		self.conn.on( 'chat', chat );
+		self.conn.on( 'online', online );
+		self.conn.on( 'offline', offline );
 		
 		function init( e ) { self.handleInitialize( e ); }
 		function persistent( e ) { self.handlePersistent( e ); }
@@ -1639,10 +1626,10 @@ library.contact = library.contact || {};
 		self.bindView();
 		self.setupDormant();
 		
-		self.messageMap[ 'message' ] = preMessage;
-		self.messageMap[ 'log' ] = preLog;
-		self.messageMap[ 'chatencrypt' ] = addChatEncrypt;
-		self.messageMap[ 'publickey' ] =  updatePublicKey;
+		self.conn.on( 'message', preMessage );
+		self.conn.on( 'log', preLog );
+		self.conn.on( 'chatencrypt', addChatEncrypt );
+		self.conn.on( 'publickey', updatePublicKey );
 		
 		if ( self.data.enc ) {
 			self.addChatEncrypt( self.data.enc );
@@ -2060,22 +2047,21 @@ library.contact = library.contact || {};
 	
 	ns.IrcChannel.prototype.bindServerEvents = function() {
 		var self = this;
-		//self.messageMap[ 'message' ] = handleMessage;
-		self.messageMap[ 'action' ] = handleAction;
-		self.messageMap[ 'join' ] = userJoin;
-		self.messageMap[ 'mode' ] = modeChange;
-		self.messageMap[ 'usermode' ] = userModeChange;
-		self.messageMap[ 'nick' ] = nickChange;
-		self.messageMap[ 'userlist' ] = userList;
-		self.messageMap[ 'part' ] = userPart;
-		self.messageMap[ 'quit' ] = userQuit;
-		self.messageMap[ 'kick' ] = kick;
-		self.messageMap[ 'ban' ] = ban;
-		self.messageMap[ 'log' ] = logMsg;
-		self.messageMap[ 'topic' ] = updateTopic;
-		self.messageMap[ 'setting' ] = setting;
-		self.messageMap[ 'state' ] = handleState;
-		self.messageMap[ 'user' ] = updateUser;
+		self.conn.on( 'action', handleAction );
+		self.conn.on( 'join', userJoin );
+		self.conn.on( 'mode', modeChange );
+		self.conn.on( 'usermode', userModeChange );
+		self.conn.on( 'nick', nickChange );
+		self.conn.on( 'userlist', userList );
+		self.conn.on( 'part', userPart );
+		self.conn.on( 'quit', userQuit );
+		self.conn.on( 'kick', kick );
+		self.conn.on( 'ban', ban );
+		self.conn.on( 'log', logMsg );
+		self.conn.on( 'topic', updateTopic );
+		self.conn.on( 'setting', setting );
+		self.conn.on( 'state', handleState );
+		self.conn.on( 'user', updateUser );
 		
 		function handleMessage(  e ) { self.handleMessage( e ); }
 		function handleAction(   e ) { self.handleAction( e ); }
@@ -2435,9 +2421,9 @@ library.contact = library.contact || {};
 		var self = this;
 		self.bindView();
 		
-		self.messageMap[ 'nick' ] = updateIdentity;
-		self.messageMap[ 'user' ] = updateUser;
-		self.messageMap[ 'action' ] = handleAction;
+		self.conn.on( 'nick', updateIdentity );
+		self.conn.on( 'user', updateUser );
+		self.conn.on( 'action', handleAction );
 		
 		function updateIdentity( msg ) { self.updateIdentity( msg ); }
 		function updateUser( msg ) { self.updateUser( msg ); }
