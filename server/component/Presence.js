@@ -1,5 +1,3 @@
-'use strict';
-
 /*©agpl*************************************************************************
 *                                                                              *
 * This file is part of FRIEND UNIFYING PLATFORM.                               *
@@ -18,6 +16,8 @@
 * along with this program.  If not, see <http://www.gnu.org/licenses/>.        *
 *                                                                              *
 *****************************************************************************©*/
+
+'use strict';
 
 const log = require( './Log' )( 'Presence' );
 const confLog = require( './Log' )( 'Presence.Config' );

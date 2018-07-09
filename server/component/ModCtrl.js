@@ -23,6 +23,7 @@
 const Presence = require( './Presence' );
 const Treeroot = require( './Treeroot' );
 const IRC = require( './IRC' );
+const Telegram = require( './Telegram' );
 
 const log = require( './Log' )( 'ModCtrl' );
 const modLog = require( './Log' )( 'ModuleProxy' );
@@ -161,6 +162,7 @@ ns.ModCtrl.prototype.init = function() {
 		'presence' : Presence,
 		'treeroot' : Treeroot,
 		'irc'      : IRC,
+		'telegram' : Telegram,
 	};
 	
 	self.eventMap = {

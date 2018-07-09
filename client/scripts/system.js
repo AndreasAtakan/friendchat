@@ -438,33 +438,47 @@ library.rtc = library.rtc || {};
 	// Private
 	
 	ns.ModuleControl.prototype.init = function() {
-		var self = this;
+		const self = this;
 		self.availableModules = setAvailable( hello.config.modules );
 		self.moduleMap =  {
 			treeroot : library.module.Treeroot,
-			irc : library.module.IRC,
+			irc      : library.module.IRC,
 			presence : library.module.Presence,
+			telegram : library.module.Telegram,
 		};
 		
-		self.conn = new library.system.Message({
-			id : 'module',
-			handler : receiveMessage,
-		});
+		self.conn = new library.component.EventNode(
+			'module',
+			hello.conn,
+			eventSink
+		);
 		
+		self.conn.on( 'add', add );
+		self.conn.on( 'remove', remove );
+		self.conn.on( 'create', create );
+		
+		function eventSink( type, data ) {
+			console.log( 'ModuleControl - eventSink', {
+				type : type,
+				data : data,
+			});
+		}
+		
+		/*
 		self.connMap = {
 			'add' : add,
 			'remove' : remove,
 			'create' : create,
 		};
+		*/
 		
-		function receiveMessage( msg ) { self.receiveMessage( msg ); }
-		function add( msg ) { self.add( msg ); }
-		function remove( msg ) { self.handleRemove( msg ); }
+		function add( e ) { self.add( e ); }
+		function remove( e ) { self.handleRemove( e ); }
 		function create( e ) { self.createResult( e ); }
 		
 		self.view = new library.component.SubView({
 			parent : self.parentView,
-			type : 'module'
+			type   : 'module',
 		});
 		self.bindView();
 		
@@ -478,18 +492,6 @@ library.rtc = library.rtc || {};
 			}
 			return available;
 		}
-	}
-	
-	ns.ModuleControl.prototype.receiveMessage = function( msg ) {
-		var self = this;
-		var handler = self.connMap[ msg.type ];
-		
-		if ( !handler ) {
-			console.log( 'ModuleControl - no handler for', msg );
-			return;
-		}
-		
-		handler( msg.data );
 	}
 	
 	ns.ModuleControl.prototype.bindView = function() {
@@ -1505,6 +1507,35 @@ library.rtc = library.rtc || {};
 	
 	// Public
 	
+	ns.Connection.prototype.on = function( type, callback ) {
+		var self = this;
+		if ( !type || !callback ) {
+			console.log( 'connection.on: missing arguments',
+				{ type : type, callback : callback });
+			return false;
+		}
+		
+		if ( self.subscriber[ type ] ) {
+			console.log( 'subscriber type already exists - call .off( type ) to remove the previous one ', {
+				type : type,
+				subs : self.subscriber });
+			throw new Error( 'error, see log ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^' );
+		}
+		
+		self.subscriber[ type ] = callback;
+	}
+	
+	ns.Connection.prototype.off = function( type ) {
+		var self = this;
+		if ( !type || !self.subscriber[ type ] ) {
+			console.log( 'connection.off - invalid subscriber', type );
+			return;
+		}
+		
+		delete self.subscriber[ type ];
+	}
+	ns.Connection.prototype.release = ns.Connection.prototype.off;
+	
 	ns.Connection.prototype.send = function( msg ) {
 		var self = this;
 		if ( !msg || !self.socket )
@@ -1720,34 +1751,6 @@ library.rtc = library.rtc || {};
 		handler( event.data );
 	}
 	
-	ns.Connection.prototype.on = function( type, callback ) {
-		var self = this;
-		if ( !type || !callback ) {
-			console.log( 'connection.on: missing arguments',
-				{ type : type, callback : callback });
-			return false;
-		}
-		
-		if ( self.subscriber[ type ] ) {
-			console.log( 'subscriber type already exists - call .off( type ) to remove the previous one ', {
-				type : type,
-				subs : self.subscriber });
-			throw new Error( 'error, see log ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^' );
-		}
-		
-		self.subscriber[ type ] = callback;
-	}
-	
-	ns.Connection.prototype.off = function( type ) {
-		var self = this;
-		if ( !type || !self.subscriber[ type ] ) {
-			console.log( 'connection.off - invalid subscriber', type );
-			return;
-		}
-		
-		delete self.subscriber[ type ];
-	}
-	
 })( library.system );
 
 
@@ -1776,7 +1779,7 @@ library.rtc = library.rtc || {};
 		var self = this;
 		var wrap = {
 			type : self.parentId || self.id,
-			data : msg
+			data : msg,
 		};
 		
 		hello.conn.send( wrap );
@@ -1789,7 +1792,7 @@ library.rtc = library.rtc || {};
 			return;
 		}
 		
-		this.handler( data );
+		self.handler( data );
 	}
 	
 	ns.Message.prototype.close = function() {

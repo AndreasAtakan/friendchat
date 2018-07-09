@@ -267,10 +267,7 @@ library.view = library.view || {};
 // TREEROOT module
 (function( ns, undefined ) {
 	ns.Treeroot = function( conf ) {
-		if ( !( this instanceof ns.Treeroot ))
-			return new ns.Treeroot( conf );
-		
-		var self = this;
+		const self = this;
 		self.activeId = friendUP.tool.uid( 'active' );
 		self.inactiveFolditId = friendUP.tool.uid( 'inactiveFoldit' );
 		self.inactiveId = friendUP.tool.uid( 'inactive' );
@@ -1047,12 +1044,9 @@ library.view = library.view || {};
 // IRC
 (function( ns, undefined ) {
 	ns.IRC = function( conf ) {
-		if ( !( this instanceof ns.IRC ))
-			return new ns.IRC( conf );
+		const self = this;
+		library.view.BaseModule.call( self, conf );
 		
-		library.view.BaseModule.call( this, conf );
-		
-		var self = this;
 		self.init();
 	}
 	
@@ -1180,10 +1174,7 @@ library.view = library.view || {};
 // Presence
 (function( ns, undefined ) {
 	ns.Presence = function( conf ) {
-		if ( !( this instanceof ns.Presence ))
-			return new ns.Presence( conf );
-		
-		var self = this;
+		const self = this;
 		self.createRoomId = friendUP.tool.uid( 'create' );
 		library.view.BaseModule.call( self, conf );
 		self.init();
@@ -1734,6 +1725,28 @@ library.view = library.view || {};
 	
 })( library.view );
 
+// TElegram
+(function( ns, undefined ) {
+	ns.Telegram = function( conf ) {
+		if ( !( this instanceof ns.Telegram ))
+			return new ns.Telegram( conf );
+		
+		var self = this;
+		library.view.BaseModule.call( self, conf );
+		
+		self.init();
+	}
+	
+	// Public
+	
+	// Private
+	
+	ns.Telegram.prototype.init = function() {
+		const self = this;
+	}
+	
+})( library.view );
+
 
 // ACCONT
 (function( ns, undefined ) {
@@ -1811,6 +1824,7 @@ library.view = library.view || {};
 			treeroot : library.view.Treeroot,
 			irc      : library.view.IRC,
 			presence : library.view.Presence,
+			telegram : library.view.Telegram,
 		};
 		
 		self.guide = new library.component.InfoBox({
@@ -1860,7 +1874,7 @@ library.view = library.view || {};
 			Constructor = library.view.BaseModule;
 		}
 		
-		const module = Constructor( conf );
+		const module = new Constructor( conf );
 		self.active[ module.id ] = module;
 		if ( self.assist )
 			self.assist.register( module );

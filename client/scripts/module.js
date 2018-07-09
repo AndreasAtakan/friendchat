@@ -2472,12 +2472,9 @@ library.module = library.module || {};
 	
 })( library.module );
 
-// FACEHUG
+// Telegram
 (function( ns, undefined ) {
-	ns.Facebook = function( conf ) {
-		if ( !( this instanceof ns.Facebook ))
-			return new ns.Facebook( conf );
-		
+	ns.Telegram = function( conf ) {
 		const self = this;
 		
 		library.module.BaseModule.call( self, conf );
@@ -2485,33 +2482,11 @@ library.module = library.module || {};
 		self.init();
 	}
 	
-	ns.Facebook.prototype = Object.create( library.module.BaseModule.prototype );
+	ns.Telegram.prototype = Object.create( library.module.BaseModule.prototype );
 	
-	ns.Facebook.prototype.init = function() {
+	ns.Telegram.prototype.init = function() {
 		const self = this;
-		console.log( 'app.module.Facebook.init' );
+		console.log( 'app.module.Telegram.init' );
 	}
 	
 })( library.module );
-
-// PHMODULE
-(function( ns, undefined ) {
-	ns.PHModule = function( conf ) {
-		if ( !( this instanceof ns.PHModule ))
-			return new ns.PHModule( conf );
-		
-		const self = this;
-		library.module.BaseModule.call( self, conf );
-		
-		self.init();
-	}
-	
-	ns.PHModule.prototype = Object.create( library.module.BaseModule.prototype );
-	
-	ns.PHModule.prototype.init = function() {
-		const self = this;
-		console.log( 'app.module.PHModule.init' );
-	};
-	
-})( library.module );
-

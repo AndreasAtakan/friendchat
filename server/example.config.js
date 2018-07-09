@@ -127,6 +127,10 @@ var shared = {
 			type : 'irc',
 			name : 'IRC',
 		},
+		telegram : {
+			type : 'telegram',
+			name : 'Telegram',
+		},
 	},
 };
 
