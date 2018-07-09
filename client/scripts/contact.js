@@ -47,9 +47,10 @@ library.contact = library.contact || {};
 	
 	ns.Contact.prototype.contactInit = function( parentConn, parentView ) {
 		var self = this;
-		self.conn = new library.system.EventNode(
+		console.log( 'contactInit', self.clientId );
+		self.conn = new library.component.EventNode(
 			self.clientId,
-			parentNode,
+			parentConn,
 			eventSink
 		);
 		function eventSink( type, data ) {
@@ -457,9 +458,9 @@ library.contact = library.contact || {};
 			self.chatView.sendMessage( event );
 	}
 	
-	ns.Contact.prototype.send = function( msg ) {
+	ns.Contact.prototype.send = function( event ) {
 		var self = this;
-		self.conn.send( wrap );
+		self.conn.send( event );
 	}
 	
 	ns.Contact.prototype.contactClose = function() {

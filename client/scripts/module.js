@@ -61,7 +61,7 @@ library.module = library.module || {};
 	ns.BaseModule.prototype.initBaseModule = function() {
 		const self = this;
 		// server stuff
-		self.conn = new library.system.EventNode(
+		self.conn = new library.component.EventNode(
 			self.clientId,
 			hello.conn,
 			eventSink
@@ -76,7 +76,7 @@ library.module = library.module || {};
 		
 		self.conn.on( 'initstate', initState );
 		self.conn.on( 'connection', connection );
-		self.conn.on( 'settings', settings );
+		self.conn.on( 'settings', showSettings );
 		self.conn.on( 'setting', updateSetting );
 		
 		function initState( msg ) { self.initializeState( msg ); }

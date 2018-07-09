@@ -483,7 +483,11 @@ ns.Presence.prototype.handleRoomToClientEvent = function( event, roomId ) {
 		self.rooms[ roomId ].name = event.data.name;
 	}
 	
-	self.client.send( event, null, roomId );
+	const wrap = {
+		type : roomId,
+		data : event,
+	};
+	self.client.send( wrap, null );
 }
 
 ns.Presence.prototype.handleRoomToServerEvent = function( event, clientId, roomId ) {
