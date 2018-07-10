@@ -50,7 +50,7 @@ ns.Telegram.prototype.init = function() {
 		type : 'initialize',
 	});
 	
-	function connect( e, sid ) { self.handleConnect( e, sId ); }
+	function connect( e, sId ) { self.handleConnect( e, sId ); }
 }
 
 ns.Telegram.prototype.handleConnect = function( conf, socketId ) {
@@ -58,7 +58,7 @@ ns.Telegram.prototype.handleConnect = function( conf, socketId ) {
 	log( 'handleConnect', {
 		conf : conf,
 		sId  : socketId,
-	});
+	}, 3 );
 }
 
 module.exports = ns.Telegram;

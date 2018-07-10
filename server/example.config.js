@@ -85,6 +85,9 @@ var server = {
 					realName : '-',
 				},
 			},
+			telegram : {
+				foo : 'bar',
+			}
 		},
 	},
 };
