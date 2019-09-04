@@ -1247,6 +1247,9 @@ library.view = library.view || {};
 		self.userId = conf.userId;
 		
 		library.view.BaseModule.call( self, conf );
+		
+		self.invites = {};
+		
 		self.init();
 	}
 	
@@ -1327,6 +1330,7 @@ library.view = library.view || {};
 		self.mod.on( 'contact-list', contactList );
 		self.mod.on( 'contact-add', contactAdd );
 		self.mod.on( 'contact-remove', contactRemove );
+		self.mod.on( 'invite-add', inviteAdd );
 		
 		function userId( e ) { self.userId = e; }
 		function joinedRoom( e ) { self.handleRoomJoin( e ); }
@@ -1334,6 +1338,7 @@ library.view = library.view || {};
 		function contactList( e ) { self.handleContactList( e ); }
 		function contactAdd( e ) { self.handleContactAdd( e ); }
 		function contactRemove( e ) { self.handleContactRemove( e ); }
+		function inviteAdd( e ) { self.handleInviteAdd( e ); }
 	}
 	
 	ns.Presence.prototype.updateTitle = function() {
@@ -1360,6 +1365,7 @@ library.view = library.view || {};
 		}
 		
 		const cId = conf.clientId;
+		self.clearRoomInvite( cId );
 		if ( self.rooms[ cId ]) {
 			return;
 		}
@@ -1420,6 +1426,92 @@ library.view = library.view || {};
 		delete self.contacts[ clientId ];
 		self.contactIds = Object.keys( self.contacts );
 		contact.close();
+	}
+	
+	ns.Presence.prototype.handleInviteAdd = function( invite ) {
+		const self = this;
+		const from = invite.from;
+		const room = invite.room;
+		const token = invite.token;
+		if ( !from || !room || !token ) {
+			console.log( 'view.Presence.handleInviteAdd - missing things', invite );
+			return;
+		}
+		
+		const roomId = room.clientId;
+		if ( self.invites[ roomId ]) {
+			console.log( 'view.Presence.handleInviteAdd - already have invite', {
+				inv  : invite,
+				invs : self.invites,
+			});
+			return;
+		}
+		
+		const parts = [];
+		parts.push( from.name );
+		parts.push( window.View.i18n( 'i18n_has_invited_you_to' ));
+		parts.push( '#' + room.name );
+		const str = parts.join( ' ' );
+		const item = new library.view.QueryItem(
+			self.roomItemsId,
+			roomId,
+			str,
+			room.avatar,
+			'room',
+			null,
+		);
+		self.invites[ roomId ] = {
+			item    : item,
+			timeout : null,
+		};
+		item.once( 'response', handleResponse );
+		
+		const orderConf = {
+			clientId : roomId,
+			priority : 1,
+			name     : room.name,
+		};
+		self.roomOrder.add( orderConf );
+		self.emit( 'add', item );
+		
+		function handleResponse( res ) {
+			queueRemove( roomId );
+			const invRes = {
+				type : 'invite-response',
+				data : {
+					token    : token,
+					roomId   : roomId,
+					accepted : res.accepted,
+				},
+			};
+			self.mod.send( invRes );
+		}
+		
+		function queueRemove( roomId ) {
+			const inv = self.invites[ roomId ];
+			if ( !inv )
+				return;
+			
+			inv.timeout = window.setTimeout( remove, 2000 );
+			function remove() {
+				self.clearRoomInvite( roomId );
+			}
+		}
+	}
+	
+	ns.Presence.prototype.clearRoomInvite = function( invId ) {
+		const self = this;
+		const inv = self.invites[ invId ];
+		if ( null == inv )
+			return;
+		
+		self.roomOrder.remove( invId );
+		self.emit( 'remove', invId );
+		if ( null != inv.timeout )
+			window.clearTimeout( inv.timeout );
+		
+		inv.item.close();
+		delete self.invites[ invId ];
 	}
 	
 	ns.Presence.prototype.addContact = function( conf ) {
@@ -3418,56 +3510,56 @@ library.view = library.view || {};
 	
 	ns.Main.prototype.addMenu = function() {
 		const self = this;
-		var modules = {
+		const modules = {
 			type   : 'folder',
 			id     : 'modules',
-			name   : View.i18n('i18n_modules'),
+			name   : View.i18n( 'i18n_modules' ),
 			faIcon : 'fa-folder-o',
 		};
 		
-		var addChatItem = {
+		const addChatItem = {
 			type   : 'item',
 			id     : 'account-add-chat',
-			name   : View.i18n('i18n_add_chat_account'),
+			name   : View.i18n( 'i18n_add_chat_account' ),
 			faIcon : 'fa-users',
 		};
 		
-		var settingsItem = {
+		const settingsItem = {
 			type   : 'item',
 			id     : 'account-settings',
-			name   : View.i18n('i18n_account_settings'),
+			name   : View.i18n( 'i18n_account_settings' ),
 			faIcon : 'fa-cog',
 		};
 		
-		var liveItem = {
+		const liveItem = {
 			type   : 'item',
 			id     : 'start-live',
-			name   : View.i18n('i18n_start_live_session'),
+			name   : View.i18n( 'i18n_start_live_session' ),
 			faIcon : 'fa-video-camera',
 		};
 		
-		var aboutItem = {
+		const aboutItem = {
 			type   : 'item',
 			id     : 'about',
-			name   : View.i18n('i18n_about'),
+			name   : View.i18n( 'i18n_about' ),
 			faIcon : 'fa-info',
 		};
 		
-		var logoutItem = {
+		const logoutItem = {
 			type   : 'item',
 			id     : 'logout',
-			name   : View.i18n('i18n_log_out'),
+			name   : View.i18n( 'i18n_log_out' ),
 			faIcon : 'fa-sign-out',
 		};
 		
-		var quitItem = {
+		const quitItem = {
 			type   : 'item',
 			id     : 'quit',
-			name   : View.i18n('i18n_quit'),
-			faIcon : 'fa-close',
+			name   : View.i18n( 'i18n_quit' ),
+			faIcon : 'fa-power-off',
 		};
 		
-		var menuItems = [
+		const menuItems = [
 			modules,
 			liveItem,
 			addChatItem,
@@ -3477,7 +3569,7 @@ library.view = library.view || {};
 			quitItem,
 		];
 		
-		var conf = {
+		const conf = {
 			id              : friendUP.tool.uid( 'menu' ),
 			parentId        : 'main-menu',
 			templateManager : hello.template,

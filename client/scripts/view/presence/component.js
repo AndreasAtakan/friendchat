@@ -560,15 +560,11 @@ var hello = window.hello || {};
 		if ( self.el )
 			self.el.parentNode.removeChild( self.el );
 		
-		if ( self.req )
-			self.req.close();
-		
 		if ( self.conn )
 			self.conn.close();
 		
 		delete self.detached;
 		delete self.el;
-		delete self.req;
 		delete self.conn;
 		delete self.users;
 		delete self.userIds;
@@ -727,12 +723,23 @@ var hello = window.hello || {};
 			return false;
 		
 		const cId = id.clientId;
-		if ( self.identities[ cId ])
+		if ( self.identities[ cId ]) {
+			update( id );
 			return true;
+		}
 		
 		self.identities[ cId ] = id;
 		self.addUserCss( cId, id.avatar );
 		return true;
+		
+		function update( id ) {
+			const cId = id.clientId;
+			const curr = self.identities[ cId ];
+			curr.isOnline = id.isOnline;
+			curr.avatar = id.avatar;
+			curr.isAdmin = id.isAdmin;
+			curr.isGuest = id.isGuest;
+		}
 	}
 	
 	ns.UserCtrl.prototype.bindConn = function() {
@@ -852,6 +859,8 @@ var hello = window.hello || {};
 		);
 		self.users[ uid ] = userItem;
 		self.addUserCss( userItem.id, userItem.avatar );
+		if ( id.isOnline )
+			self.handleOnline( id );
 		
 		self.setUserToGroup( uid );
 	}
@@ -1136,10 +1145,14 @@ var hello = window.hello || {};
 		const getMsg = {
 			msgId : itemId,
 		};
-		self.req.request( 'edit-get', getMsg )
+		const req = {
+			type : 'edit-get',
+			data : getMsg,
+		};
+		self.conn.request( req )
 			.then( msgBack )
 			.catch( reqErr );
-			
+		
 		function msgBack( event ) {
 			if ( !event ) {
 				editError( 'ERR_EDIT_NO_EVENT' );
@@ -1283,7 +1296,11 @@ var hello = window.hello || {};
 				reason  : reason,
 			};
 			
-			self.req.request( 'edit-save', edit )
+			const req = {
+				type : 'edit-save',
+				data : edit,
+			};
+			self.conn.request( req )
 				.then( editBack )
 				.catch( editErr );
 			
@@ -1411,18 +1428,14 @@ var hello = window.hello || {};
 			self.supergroupId = workgroups.superId || '';
 		}
 		
-		self.conn = new library.component.EventNode(
+		self.conn = new library.component.RequestNode(
 			'chat',
-			parentConn
+			parentConn,
+			eSink
 		);
 		
-		self.req = new library.component.RequestNode(
-			self.conn,
-			reqSink
-		);
-		
-		function reqSink( ...args ) {
-			console.log( 'MsgBuilder reqSink', args );
+		function eSink( ...args ) {
+			console.log( 'MsgBuilder eSink', args );
 		}
 		
 		self.container = document.getElementById( self.containerId );
@@ -2746,7 +2759,10 @@ var hello = window.hello || {};
 			self.el.parentNode.removeChild( self.el );
 		
 		delete self.el;
-		delete self.icon;
+		delete self.audioBtn;
+		delete self.audioIcon;
+		delete self.videoBtn;
+		delete self.videoIcon;
 		delete self.peers;
 		delete self.peerList;
 		delete self.peerIdMap;
@@ -2770,28 +2786,38 @@ var hello = window.hello || {};
 		self.el = self.template.getElement( 'live-status-tmpl', elConf );
 		const container = document.getElementById( self.containerId );
 		container.appendChild( self.el );
-		self.icon = self.el.querySelector( '.live-status-icon i' );
+		self.videoBtn = self.el.querySelector( '.live-status-icon.video' );
+		self.audioBtn = self.el.querySelector( '.live-status-icon.audio' );
+		self.videoIcon = self.videoBtn.querySelector( 'i' );
+		self.audioIcon = self.audioBtn.querySelector( 'i' );
 		self.peers = document.getElementById( self.peers );
 		
 		//
-		self.el.addEventListener( 'click', elClick, false );
-		function elClick( e ) {
-			e.stopPropagation();
-			e.preventDefault();
-			self.handleElClick();
+		self.videoBtn.addEventListener( 'click', videoClick, false );
+		self.audioBtn.addEventListener( 'click', audioClick, false );
+		function videoClick( e ) {
+			self.handleClick( 'video' );
+		}
+		
+		function audioClick( e ) {
+			self.handleClick( 'audio' );
 		}
 		
 		// listen
 		self.stateEventId = self.users.on( 'state', live );
-		function live( e ) { self.handleLive( e ); }
+		function live( e ) {
+			self.handleLive( e );
+		}
 	}
 	
-	ns.LiveStatus.prototype.handleElClick = function() {
+	ns.LiveStatus.prototype.handleClick = function( type ) {
 		const self = this;
-		if ( self.userLive )
+		if ( self.userLive ) {
 			self.emit( 'show' );
-		else
-			self.emit( 'join' );
+			return;
+		}
+		
+		self.emit( 'join', type );
 	}
 	
 	ns.LiveStatus.prototype.handleLive = function( event ) {
@@ -2821,9 +2847,11 @@ var hello = window.hello || {};
 		self.peers.appendChild( peerEl );
 		self.peerList.push( userId );
 		if ( userId === self.userId )
-			self.setUserLive( true );
+			self.userLive = true;
+			
+		self.updateIconState();
 		
-		self.updateVisibility();
+		//self.updateVisibility();
 	}
 	
 	ns.LiveStatus.prototype.removePeer = function( userId ) {
@@ -2837,9 +2865,11 @@ var hello = window.hello || {};
 		el.parentNode.removeChild( el );
 		self.peerList = self.peerList.filter( pId => pId !== userId );
 		if ( userId === self.userId )
-			self.setUserLive( false );
+			self.userLive = false;
 		
-		self.updateVisibility();
+		self.updateIconState();
+		
+		//self.updateVisibility();
 	}
 	
 	ns.LiveStatus.prototype.updateVisibility = function() {
@@ -2848,14 +2878,28 @@ var hello = window.hello || {};
 		self.el.classList.toggle( 'hidden', !show );
 	}
 	
-	ns.LiveStatus.prototype.setUserLive = function( isLive ) {
+	ns.LiveStatus.prototype.updateIconState = function() {
 		const self = this;
-		self.userLive = isLive;
-		if ( !self.icon )
+		if ( !self.videoIcon )
 			return;
+			
+		if ( self.currState ) {
+			self.audioIcon.classList.toggle( self.currState, false );
+			self.videoIcon.classList.toggle( self.currState, false );
+		}
 		
-		self.icon.classList.toggle( 'Available', !isLive );
-		self.icon.classList.toggle( 'DangerText', isLive );
+		if ( self.peerList.length )
+			self.currState = 'Available';
+		else
+			self.currState = null;
+		
+		if ( self.userLive )
+			self.currState = 'DangerText';
+		
+		if ( self.currState ) {
+			self.audioIcon.classList.toggle( self.currState, true );
+			self.videoIcon.classList.toggle( self.currState, true );
+		}
 	}
 	
 })( library.component );

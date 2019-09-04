@@ -43,9 +43,6 @@ library.view = library.view || {};
 	ns.Presence.prototype.init = function() {
 		const self = this;
 		window.View.setBody();
-		if ( window.View.appConf.hideLive )
-			self.toggleLiveBtns( false );
-		
 		if ( window.View.appSettings )
 			self.compact = !!window.View.appSettings.compactChat;
 		
@@ -111,12 +108,11 @@ library.view = library.view || {};
 		const self = this;
 		self.titleContainer = document.getElementById( 'room-title' );
 		// buttons?
+		self.backBtn = document.getElementById( 'room-back' );
 		self.goVideoBtn = document.getElementById( 'upgrade-to-video' );
 		self.goAudioBtn = document.getElementById( 'upgrade-to-audio' );
 		self.toggleUsersBtn = document.getElementById( 'show-hide-btn' );
-		
-		// user list things
-		
+		self.inviteBtn = document.getElementById( 'invite-btn' );
 		
 		// chat things
 		self.messagesEl = document.getElementById( 'messages' );
@@ -126,9 +122,11 @@ library.view = library.view || {};
 		const attachBtn = document.getElementById( 'attachment' );
 		
 		//
+		self.backBtn.addEventListener( 'click', closeBack, false );
 		self.goVideoBtn.addEventListener( 'click', goVideoClick, false );
 		self.goAudioBtn.addEventListener( 'click', goAudioClick, false );
 		self.toggleUsersBtn.addEventListener( 'click', toggleUserList, false );
+		self.inviteBtn.addEventListener( 'click', showInviter, false );
 		
 		emoPanelBtn.addEventListener( 'click', toggleEmoPanel, false );
 		inputForm.addEventListener( 'submit', inputSubmit, false );
@@ -137,7 +135,6 @@ library.view = library.view || {};
 		
 		function attach( e ) {
 			var men = ge( 'attachment-menu' );
-			
 			var can = men.querySelector( '.Cancel' );
 			var cam = men.querySelector( '.Camera' );
 			var upl = men.querySelector( '.Upload' );
@@ -172,6 +169,7 @@ library.view = library.view || {};
 			} );
 		};
 		
+		function closeBack( e ) { self.closeBack(); }
 		function goVideoClick( e ) { self.goLive( 'video' ); }
 		function goAudioClick( e ) { self.goLive( 'audio' ); }
 		
@@ -179,6 +177,14 @@ library.view = library.view || {};
 			e.stopPropagation();
 			e.preventDefault();
 			self.toggleUserList();
+		}
+		
+		function showInviter() {
+			const inv = {
+				type : 'invite-show',
+				data : null,
+			};
+			self.send( inv );
 		}
 		
 		function toggleEmoPanel( e ) {
@@ -220,10 +226,25 @@ library.view = library.view || {};
 	
 	ns.Presence.prototype.toggleLiveBtns = function( show ) {
 		const self = this;
+		if ( show )
+			self.liveStatus.show();
+		else
+			self.liveStatus.hide();
+		
+		/*
 		vBtn = document.getElementById( 'upgrade-to-video' );
 		aBtn = document.getElementById( 'upgrade-to-audio' );
 		vBtn.classList.toggle( 'hidden', !show );
 		aBtn.classList.toggle( 'hidden', !show );
+		*/
+	}
+	
+	ns.Presence.prototype.closeBack = function() {
+		const self = this;
+		const close = {
+			type : 'close-back',
+		};
+		self.send( close );
 	}
 	
 	ns.Presence.prototype.goLive = function( type ) {
@@ -246,7 +267,8 @@ library.view = library.view || {};
 		function toggle( show ) {
 			self.messagesEl.classList.toggle( 'SmoothScrolling', !show );
 			self.usersEl.classList.toggle( 'users-hide', !show );
-			self.toggleUsersBtn.classList.toggle( 'danger', show );
+			const btnIcon = self.toggleUsersBtn.querySelector( 'i' );
+			btnIcon.classList.toggle( 'DangerText', !show );
 		}
 	}
 	
@@ -295,10 +317,17 @@ library.view = library.view || {};
 		
 		let UserCtrl = library.component.UserCtrl;
 		let MsgBuilder = library.component.MsgBuilder;
-		if ( state.workgroups && state.workgroups.workId ) {
+		const isWorkroom = ( state.workgroups && state.workgroups.workId );
+		if ( isWorkroom ) {
 			UserCtrl = ns.UserWorkCtrl;
 			MsgBuilder = ns.WorkMsgBuilder;
 		}
+		
+		if ( !self.isPrivate )
+			self.toggleUserListBtn( true );
+		
+		if ( !self.isPrivate && !isWorkroom && ( self.userId === self.ownerId ))
+			self.inviteBtn.classList.toggle( 'hidden', false );
 		
 		//
 		self.users = new UserCtrl(
@@ -316,16 +345,17 @@ library.view = library.view || {};
 		self.user = self.users.getId( self.userId );
 		
 		//
-		self.liveStatus = new library.component.LiveStatus(
-			'live-status-container',
-			self.users,
-			self.userId,
-			friend.template
-		);
-		self.liveStatus.update( state.peers );
-		self.liveStatus.on( 'show', e => self.goLive( 'show' ));
-		self.liveStatus.on( 'join', e => self.goLive( 'video' ));
-		
+		if ( !window.View.appConf.hideLive ) {
+			self.liveStatus = new library.component.LiveStatus(
+				'live-status-container',
+				self.users,
+				self.userId,
+				friend.template
+			);
+			self.liveStatus.update( state.peers );
+			self.liveStatus.on( 'show', e => self.goLive( 'show' ));
+			self.liveStatus.on( 'join', e => self.goLive( e ));
+		}
 		// get logs when scrolling to top
 		self.logFetcher = new library.component.LogFetcher(
 			'message-container',
@@ -467,7 +497,9 @@ library.view = library.view || {};
 		const self = this;
 		self.usersEl.classList.toggle( 'hidden', true );
 		self.toggleUserListBtn( false );
-		self.liveStatus.close();
+		if ( self.liveStatus )
+			self.liveStatus.close();
+		
 		self.goVideoBtn.classList.toggle( 'hidden', true );
 		self.goAudioBtn.classList.toggle( 'hidden', true );
 		self.setGroupTitle();

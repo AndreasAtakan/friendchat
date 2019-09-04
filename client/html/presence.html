@@ -4,6 +4,7 @@
 		<script src="
 			/webclient/js/utils/events.js;
 			webclient/apps/FriendChat/scripts/component/tool.js;
+			webclient/apps/FriendChat/api/logSock.js;
 			webclient/apps/FriendChat/api/view.js;
 			webclient/apps/FriendChat/scripts/component/parser.js;
 			webclient/apps/FriendChat/scripts/component/drop.js;
@@ -30,6 +31,9 @@
 <script id="body-tmpl" type="text/html">
 <div id="hello" class="conference bar column BackgroundDefault">
 	<div id="head" class="BorderBottom fortify group row">
+		<button id="room-back" class="Button IconButton fortify">
+			<i class="fa fa-fw fa-chevron-left"></i>
+		</button>
 		<div id="room-title" class="expand">
 		</div>
 		<div id="live-status-container" class="fortify">
@@ -44,25 +48,32 @@
 					<i class="fa fa-fw fa-cog"></i>
 				</button>
 				<button id="upgrade-to-video"
-					class="IconButton button"
+					class="IconButton button hidden"
 					title="{i18n_go_live}"
 					type="button"
 				>
 					<i class="fa fa-fw fa-video-camera"></i>
 				</button>
 				<button id="upgrade-to-audio"
-					class="IconButton button"
+					class="IconButton button hidden"
 					title="{i18n_go_live}"
 					type="button"
 				>
 					<i class="fa fa-fw fa-microphone"></i>
 				</button>
 				<button id="show-hide-btn"
-					class="IconButton button"
+					class="IconButton button hidden LED"
 					title="{i18n_show_hide_userlist}"
 					type="button"
 				>
 					<i class="fa fa-fw fa-users"></i>
+				</button>
+				<button id="invite-btn"
+					class="IconButton button hidden"
+					title="{i18n_invite_user}"
+					type="button"
+				>
+					<i class="fa fa-fw fa-user-plus"></i>
 				</button>
 			</div>
 		</div>
@@ -181,11 +192,14 @@ contactName,
 peersId,
 -->
 <script id="live-status-tmpl" type="text/html">
-<div class="live-status group row hidden Box">
-	<div class="live-status-icon LED">
-		<i class="fa fa-fw fa-video-camera Available"></i>
-	</div>
+<div class="live-status group row">
 	<div id="<%= peersId %>" class="live-status-peers group row">
+	</div>
+	<div class="Button IconButton live-status-icon video LED">
+		<i class="fa fa-fw fa-video-camera"></i>
+	</div>
+	<div class="Button IconButton live-status-icon audio LED">
+		<i class="fa fa-fw fa-microphone"></i>
 	</div>
 </div>
 </script>

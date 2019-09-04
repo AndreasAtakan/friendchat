@@ -232,28 +232,18 @@ body {
 
 /* Gui tabs */
 
-.tab-bar
-{
-    width: 100%;
-    height: 50px;
-    position: relative;
+#tab-bar {
+
 }
 
-.tab-bar:after
-{
-    clear: both;
-}
 
-.tab-bar .tab-item
+#tab-bar .Button
 {
-    float: left;
-    width: 33.3%;
-    height: 50px;
-    line-height: 50px;
-    text-align: center;
+    height: 3em;
     transition: background-color,color 0.25s,0.25s;
 }
-html body .tab-bar .tab-item.Button.IconButton
+
+html body #tab-bar .Button
 {
     margin: 0;
     padding: 0;
@@ -261,7 +251,7 @@ html body .tab-bar .tab-item.Button.IconButton
 }
 
 /* Todo: Use theme color here */
-.tab-bar .tab-item.active
+#tab-bar .active
 {
     color: #008DD4;
 }
@@ -269,7 +259,8 @@ html body .tab-bar .tab-item.Button.IconButton
 /* Conversations welcome box */
 
 #welcome-box {
-    position : relative;
+    position   : relative;
+    word-break : break-word;
 }
 
 #conversations .Box ul, #conversations .Box li
@@ -294,21 +285,17 @@ html body .tab-bar .tab-item.Button.IconButton
     opacity: 1;
 }
 
-#conversations .Box li
-{
-    padding: 0 0 10px 20px;
-}
-
-#conversations .welcome-box strong.welcome
-{
+#welcome-box p.welcome-title {
     font-size: 140%;
 }
 
-/* Done conversations welcome box */
+#welcome-things {
+    padding : 0 1em;
+    line-height: 2em;
+}
 
-#conversations .Box li:before
-{
-    margin: 0 10px 0 0;
+#welcome-things i {
+    margin-right : 0.5em;
 }
 
 /* Pages */
@@ -421,6 +408,14 @@ html body .tab-bar .tab-item.Button.IconButton
     line-height: 1.8em;
 }
 
+#recent-active .query-item,
+.conferences .query-item,
+.contacts .query-item {
+    position: relative;
+    padding-left:0.7em;
+    line-height: 1.8em;
+}
+
 .treeroot.contact {
 }
 
@@ -437,8 +432,17 @@ html body .tab-bar .tab-item.Button.IconButton
 }
 
 .room .name,
-.contact .name {
+.contact .name,
+.query-item .query-msg {
     margin-left : 1em;
+}
+
+.query-item .query-msg {
+    
+}
+
+.response-container {
+    
 }
 
 .contacts .contact-status,
@@ -484,9 +488,9 @@ html body .tab-bar .tab-item.Button.IconButton
 }
 
 #hello .recent-item {
-    padding-top : 0.4em;
+    padding-top    : 0.4em;
     padding-bottom : 0.2em;
-    padding-left : 0.7em;
+    padding-left   : 0.7em;
 }
 
 .avatar {
@@ -501,16 +505,16 @@ html body .tab-bar .tab-item.Button.IconButton
 
 .room .avatar,
 .recent-room .avatar {
-    border-radius       : 2px;
+    border-radius : 2px;
 }
 
 
 .recent-item .recent-info {
-    overflow: hidden;
+    overflow : hidden;
 }
 
 .recent-item .more-state {
-    max-height: 1.9em;
+    max-height : 1.9em;
 }
 
 .recent-item .name {
@@ -528,11 +532,11 @@ html body .tab-bar .tab-item.Button.IconButton
 }
 
 .recent-item .last-event-icon {
-    opacity: 0.5;
+    opacity : 0.5;
 }
 
 .recent-item .min-height-dummy {
-    line-height: 2em;
+    line-height : 2em;
 }
 
 .recent-item .last-msg-name {
@@ -574,14 +578,14 @@ html body .tab-bar .tab-item.Button.IconButton
 */
 
 .presence-call {
-    border-radius: 3em;
-    padding : 0.3em;
+    border-radius : 3em;
+    padding       : 0.3em;
 }
 
 #hello .call-status {
-    border-radius: 3em;
-    padding : 0.4em;
-    margin-right : 0.3em;
+    border-radius : 3em;
+    padding       : 0.4em;
+    margin-right  : 0.3em;
 }
 
 .call-incoming {

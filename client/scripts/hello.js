@@ -52,7 +52,15 @@ var hello = null;
 		self.init();
 	}
 	
-	// 'Public'
+	// """"Public""""
+	
+	ns.Hello.prototype.focusMain = function() {
+		const self = this;
+		if ( !self.main )
+			return;
+		
+		self.main.focus();
+	}
 	
 	// Presence calls this
 	ns.Hello.prototype.setServiceProvider = function( service ) {
@@ -1221,10 +1229,8 @@ var hello = null;
 			return;
 		}
 		
-		if ( !event.clicked ) {
-			console.log( 'hello.handleNotie - not clicked', event );
+		if ( !event.clicked )
 			return;
-		}
 		
 		if ( null != self.resumeTimeout || !self.isOnline ) {
 			self.registerOnResume( onResume );
@@ -1327,6 +1333,14 @@ var hello = null;
 	}
 	
 	// Public
+	
+	ns.Main.prototype.focus = function() {
+		const self = this;
+		if ( !self.view )
+			return;
+		
+		self.view.activate();
+	}
 	
 	ns.Main.prototype.setConnState = function( state ) {
 		const self = this;
@@ -1531,7 +1545,7 @@ var hello = null;
 			fileItems.push( quit );
 		
 		const file = {
-			name : Application.i18n('i18n_app' ),
+			name : Application.i18n( 'i18n_file' ),
 			items : fileItems,
 		};
 		

@@ -447,7 +447,6 @@ var friend = window.friend || {};
 	
 	ns.View.prototype.initialize = function( conf ) {
 		const self = this;
-		console.log( 'View.initialize - viewConf', conf.viewConf );
 		self.id = conf.viewId;
 		self.applicationId = conf.applicationId;
 		self.authId = conf.authId;
@@ -460,10 +459,12 @@ var friend = window.friend || {};
 		self.appConf = self.config.appConf || {};
 		self.appSettings = self.config.appSettings || {};
 		self.deviceType = self.config.deviceType || 'ERR_CONF_OH_SHIT';
-		if ( self.config.isDev )
+		
+		if ( !!self.config.isDev )
 			self.initLogSock();
 		
 		self.setBaseCss( baseCssLoaded );
+		
 		if ( self.config )
 			self.handleConf();
 		
@@ -513,6 +514,11 @@ var friend = window.friend || {};
 	
 	ns.View.prototype.initLogSock = function() {
 		const self = this;
+		if ( !api.LogSockView )
+			return;
+		
+		self.logSock = new api.LogSockView();
+		console.log( 'View.initLogSock', window.View.deviceType );
 	}
 	
 	ns.View.prototype.handleKeyDown = function( e ) {
@@ -737,6 +743,13 @@ var friend = window.friend || {};
 			return;
 		
 		self.cameraChecked = true;
+		
+		
+		const imagetools = document.createElement('script');
+		imagetools.src = '/webclient/3rdparty/load-image.all.min.js'
+		document.getElementsByTagName('head')[0].appendChild( imagetools );
+		
+		
 		if ( 'DESKTOP' === self.deviceType )
 			setupDesktop();
 		else
@@ -766,26 +779,24 @@ var friend = window.friend || {};
 			
 			function handleIncomingFile( evt )
 			{
-				let filereference = null;
 				if( evt && evt.target && evt.target.files )
-					filereference = evt.target.files[0]
-				
-				const reader = new FileReader();
-				reader.onload = readBack;
-				reader.readAsDataURL( filereference );
-				
-				function readBack( e ) {
-					if( !e.target && !e.target.result )
-					{
-						imgBack( false );
-					}
-					else
-					{
-						imgBack({
-							data : e.target.result
-						});
-					}
-		    	}
+				{
+					window.loadImage(
+						evt.target.files[0],
+						function(returnedcanvas,meta) {
+							var imagedata = returnedcanvas.toDataURL('image/jpeg', 0.9);
+							imgBack({
+								data : imagedata
+							});
+						},
+						{ maxWidth: 1920, maxHeight: 1920, canvas:true, orientation: true }
+					);
+					
+				}
+				else
+				{
+					imgBack( false );
+				}
 			}
 		}
 		
@@ -797,16 +808,16 @@ var friend = window.friend || {};
 				});
 				return;
 			}
-			
+
 			const raw = window.atob( msg.data.split( ';base64,' )[1] );
 			const uInt8Array = new Uint8Array( raw.length );
 			for ( let i = 0; i < raw.length; ++i ) {
 				uInt8Array[ i ] = raw.charCodeAt( i );
 			}
-		
+			
 			const bl = new Blob(
 				[ uInt8Array ],
-				{ type: 'image/png', encoding: 'utf-8' }
+				{ type: 'image/jpeg', encoding: 'utf-8' }
 			);
 			
 			// Paste the blob!
@@ -829,7 +840,6 @@ var friend = window.friend || {};
 					} ]
 				} );
 			}
-			
 		};
 		
 	}
@@ -1027,33 +1037,52 @@ body .View.Active.IconWindow ::-webkit-scrollbar-thumb
 	}
 	
 	ns.View.prototype.sendMessage = function( data, callback ) {
-		var self = this;
+		const self = this;
 		if ( !self.id )
 			throw new Error( 'View not yet initialized' );
 		
-		var msg = { data : data };
+		const msg = {
+			data : {
+				type : 'app',
+				data : data,
+			},
+		};
 		if ( callback ) {
-			var callbackId = friendUP.tool.uid();
+			console.trace( '------ XxX OMG CALLBACK XOXO ------', data );
+			const callbackId = friendUP.tool.uid();
 			msg.data.callback = callbackId;
 			self.on( callbackId, callback );
 		}
 		
 		self.sendBase( msg );
 	}
+	
 	ns.View.prototype.send = ns.View.prototype.sendMessage;
 	
-	ns.View.prototype.sendViewEvent = function( msg ) {
-		var self = this;
-		msg.type = 'view';
-		self.sendBase( msg );
+	ns.View.prototype.sendViewEvent = function( event ) {
+		const self = this;
+		event.type = 'view';
+		self.sendBase( event );
 	}
 	
-	ns.View.prototype.sendBase = function( msg ) {
+	ns.View.prototype.sendTypeEvent = function( type, data ) {
 		const self = this;
-		msg.viewId = self.id;
-		msg.applicationId = self.applicationId;
+		const event = {
+			data : {
+				type : type,
+				data : data,
+			},
+		};
 		
-		const msgString = friendUP.tool.stringify( msg );
+		self.sendBase( event );
+	}
+	
+	ns.View.prototype.sendBase = function( event ) {
+		const self = this;
+		event.viewId = self.id;
+		event.applicationId = self.applicationId;
+		
+		const msgString = friendUP.tool.stringify( event );
 		window.parent.postMessage( msgString, self.parentOrigin );
 	}
 	
@@ -1071,7 +1100,7 @@ body .View.Active.IconWindow ::-webkit-scrollbar-thumb
 	ns.View.prototype.i18nReplaceInString = function( str ) {
 		const self = this;
 		var pos = 0;
-		while ( ( pos = str.indexOf( "{i18n_", pos ) ) >= 0 ) {
+		while (( pos = str.indexOf( "{i18n_", pos )) >= 0 ) {
 			var pos2 = str.indexOf( "}", pos );
 			if ( -1 === pos2 )
 				break;
@@ -1123,6 +1152,7 @@ window.View = new api.View();
 			var updateurl = '/system.library/file/dir?wr=1'
 			updateurl += '&path=' + encodeURIComponent( 'Home:Downloads' );
 			updateurl += '&authid=' + encodeURIComponent( View.authId );
+			updateurl += '&cachekiller=' + ( new Date() ).getTime();
 			
 			var wholePath = 'Home:Downloads/';
 			
@@ -1233,7 +1263,7 @@ window.View = new api.View();
 		// Support blob format
 		if( evt.type && evt.type == 'blob' )
 		{
-			evt.blob.name = 'cameraimage.png';
+			evt.blob.name = 'cameraimage.jpg';
 			evt.clipboardData = { items: [ { 
 				kind: 'file', 
 				getAsFile()
