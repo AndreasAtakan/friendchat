@@ -148,6 +148,24 @@ library.component = library.component || {};
 		self.recording.classList.toggle( 'hidden', !self.isRecording );
 	}
 	
+	ns.UI.prototype.setModeNormal = function() {
+		const self = this;
+		console.log( 'UI.setModeNormal' )
+		self.clearCurrentMode();
+	}
+	
+	ns.UI.prototype.setModePresentation = function( presenterId ) {
+		const self = this;
+		console.log( 'UI.setModePresentation', presenterId )
+		self.clearCurrentMode();
+	}
+	
+	ns.UI.prototype.setModeFollowSpeaker = function() {
+		const self = this;
+		console.log( 'UI.setModeFollowSpeaker' )
+		self.clearCurrentMode();
+	}
+	
 	// Private
 	
 	ns.UI.prototype.init = function( conf ) {
@@ -1168,7 +1186,7 @@ library.component = library.component || {};
 		self.menu.on( 'clean-ui', cleanUIHandler );
 		self.menu.on( 'dragger', reorderHandler );
 		self.menu.on( 'popped', togglePopped );
-		self.menu.on( 'mode-speaker', modeSpeaker );
+		//self.menu.on( 'mode-speaker', modeSpeaker );
 		self.menu.on( 'fullscreen', toggleFullscreen );
 		return self.menu;
 		
