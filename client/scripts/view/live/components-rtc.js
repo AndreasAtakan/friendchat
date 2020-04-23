@@ -226,6 +226,11 @@ library.rtc = library.rtc || {};
 		self.isSpeaking = !!isSpeaker;
 	}
 	
+	ns.IsSpeaking.prototype.getIsSpeaker = function() {
+		const self = this;
+		return self.isSpeaking;
+	}
+	
 	ns.IsSpeaking.prototype.close = function() {
 		const self = this;
 		self.releaseSource();
@@ -349,7 +354,7 @@ library.rtc = library.rtc || {};
 		self.volumeAverage = 0;
 		self.timeBuffer = null;
 		
-		self.volumeHistory = new Array( 10 );
+		self.volumeHistory = new Array( 2 );
 		self.volumeHistory.fill( 0 );
 		
 		self.averageOverTime = new Array( 30 );
@@ -2952,6 +2957,7 @@ library.rtc = library.rtc || {};
 		// lowest quality first or things will break
 		self.videoQualityKeys = [ 'width', 'height', 'frameRate' ];
 		self.videoQualityMap = {
+			'pixel'   : [ 20, 20, 1 ],
 			'low'     : [ 256, 168, 4 ],
 			'medium'  : [ 480, 320, 12 ],
 			'normal'  : [ 640, 480, 24 ],
