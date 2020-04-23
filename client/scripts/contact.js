@@ -712,7 +712,6 @@ library.contact = library.contact || {};
 				type : type,
 				data : data,
 			};
-			console.log( 'xliveToServer', event );
 			self.liveToServer( event );
 		}
 	}
@@ -1851,7 +1850,6 @@ library.contact = library.contact || {};
 	
 	ns.PresenceRoom.prototype.handleLive = function( event ) {
 		const self = this;
-		console.log( 'xlive handleLive', event );
 		if ( 'open' === event.type ) {
 			if ( !self.live )
 				return;
@@ -2260,8 +2258,7 @@ library.contact = library.contact || {};
 	
 	ns.PresenceRoom.prototype.liveToServer = function( event ) {
 		const self = this;
-		console.log( 'liveToServer', event );
-		var wrap = {
+		const wrap = {
 			type : 'live',
 			data : event,
 		};

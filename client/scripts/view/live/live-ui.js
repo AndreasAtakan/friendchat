@@ -148,6 +148,45 @@ library.component = library.component || {};
 		self.recording.classList.toggle( 'hidden', !self.isRecording );
 	}
 	
+	ns.UI.prototype.setModeNormal = function() {
+		const self = this;
+		console.log( 'UI.setModeNormal' )
+		self.clearCurrentMode();
+	}
+	
+	ns.UI.prototype.setModePresentation = function( presenterId, isPresenter ) {
+		const self = this;
+		console.log( 'UI.setModePresentation', presenterId )
+		self.clearCurrentMode();
+		if ( isPresenter )
+			presenterId = 'selfie';
+		
+		self.presenterId = presenterId;
+		
+		self.menu.disable( 'dragger' );
+		self.menu.disable( 'mode-speaker' );
+		self.menu.disable( 'send-receive' );
+		self.menu.setState( 'mode-presentation', true );
+		if ( !isPresenter )
+			self.menu.disable( 'mode-presentation' );
+		
+		if ( presenterId ) {
+			if ( 'selfie' === presenterId )
+				self.togglePopped( false );
+		}
+		else
+			self.togglePopped( true );
+		
+	}
+	
+	ns.UI.prototype.setModeFollowSpeaker = function() {
+		const self = this;
+		console.log( 'UI.setModeFollowSpeaker' )
+		self.clearCurrentMode();
+		
+		
+	}
+	
 	// Private
 	
 	ns.UI.prototype.init = function( conf ) {
@@ -317,6 +356,11 @@ library.component = library.component || {};
 		const self = this;
 		isOver = self.uiVisible || isOver;
 		self.toggleUI( isOver );
+	}
+	
+	ns.UI.prototype.clearCurrentMode = function() {
+		const self = this;
+		console.log( 'clearCurrentMode' );
 	}
 	
 	ns.UI.prototype.showMenu = function() {
@@ -974,42 +1018,6 @@ library.component = library.component || {};
 				},
 			],
 		};
-		const mute = {
-			type   : 'item',
-			id     : 'mute',
-			name   : View.i18n('i18n_mute_your_audio'),
-			faIcon : 'fa-microphone-slash',
-			toggle : false,
-			close  : false,
-		};
-		const blind = {
-			type   : 'item',
-			id     : 'blind',
-			name   : View.i18n('i18n_pause_your_video'),
-			faIcon : 'fa-eye-slash',
-			toggle : false,
-			close  : false,
-		};
-		const screenShare = {
-			type   : 'item',
-			id     : 'toggle-screen-share',
-			name   : View.i18n( 'i18n_toggle_share_screen' ),
-			faIcon : 'fa-laptop',
-			toggle : false,
-			close  : true,
-		};
-		const source = {
-			type   : 'item',
-			id     : 'source-select',
-			name   : View.i18n( 'i18n_select_media_sources' ),
-			faIcon : 'fa-random',
-		};
-		const chat = {
-			type   : 'item',
-			id     : 'chat',
-			name   : View.i18n( 'i18n_text_chat' ),
-			faIcon : 'fa-keyboard-o',
-		};
 		const restart = {
 			type   : 'item',
 			id     : 'restart',
@@ -1046,19 +1054,6 @@ library.component = library.component || {};
 			faIcon : 'fa-user-circle-o',
 			toggle : false,
 			close  : true,
-		};
-		const settings = {
-			type    : 'item',
-			id      : 'settings',
-			name    : View.i18n( 'i18n_room_settings' ),
-			faIcon  : 'fa-ellipsis-v',
-			disable : true,
-		};
-		const share = {
-			type   : 'item',
-			id     : 'share',
-			name   : View.i18n( 'i18n_share' ),
-			faIcon : 'fa-share-alt',
 		};
 		const presentation = {
 			type   : 'item',
@@ -1133,21 +1128,15 @@ library.component = library.component || {};
 		};
 		
 		const content = [
-			//share,
-			chat,
-			blind,
-			mute,
 			quality,
 			restart,
 			fullscreen,
-			//screenShare,
 			presentation,
-			source,
 			popped,
 			speaker,
 			sendReceive,
 			screenMode,
-			settings,
+			//settings,
 			dragger,
 			username,
 			cleanUI,
@@ -1155,7 +1144,7 @@ library.component = library.component || {};
 			leave,
 		];
 		
-		var conf = {
+		const conf = {
 			menuConf : {
 				content      : content,
 				onnolistener : noListenerFor,
@@ -1164,11 +1153,10 @@ library.component = library.component || {};
 		self.menuUI = self.addUIPane( 'menu', conf );
 		self.menu = self.menuUI.getMenu();
 		self.menu.on( 'share', shareHandler );
-		self.menu.on( 'chat', chatHandler );
 		self.menu.on( 'clean-ui', cleanUIHandler );
 		self.menu.on( 'dragger', reorderHandler );
 		self.menu.on( 'popped', togglePopped );
-		self.menu.on( 'mode-speaker', modeSpeaker );
+		//self.menu.on( 'mode-speaker', modeSpeaker );
 		self.menu.on( 'fullscreen', toggleFullscreen );
 		return self.menu;
 		
@@ -1181,13 +1169,6 @@ library.component = library.component || {};
 				return;
 			
 			self.shareUI.toggle();
-		}
-		
-		function chatHandler( state ) {
-			if ( !self.chatUI )
-				return;
-			
-			self.chatUI.toggle();
 		}
 		
 		function cleanUIHandler( state ) {
@@ -1288,10 +1269,14 @@ library.component = library.component || {};
 	
 	ns.UI.prototype.setSpeaker = function( speaker ) {
 		const self = this;
+		let sId = speaker.peerId;
+		if ( sId === self.userId )
+			sId = 'selfie';
+		
 		if ( !speaker || !speaker.isSpeaking )
 			unset();
 		else
-			set( speaker );
+			set( sId );
 		
 		self.updateModeSpeaker();
 		
@@ -1307,36 +1292,14 @@ library.component = library.component || {};
 			peer.setIsSpeaking( false );
 		}
 		
-		function set( speaker ) {
+		function set( sId ) {
 			unset();
-			const peer = self.peers[ speaker.peerId ];
+			const peer = self.peers[ sId ];
 			if ( !peer )
 				return;
 			
-			self.currentSpeaker = speaker.peerId;
+			self.currentSpeaker = sId;
 			peer.setIsSpeaking( true );
-		}
-	}
-	
-	ns.UI.prototype.togglePresentation = function( presenterId ) {
-		const self = this;
-		if ( !presenterId )
-			disable();
-		else
-			enable( presenterId );
-		
-		function disable() {
-			self.togglePopped( true );
-		}
-		
-		function enable( presenterId ) {
-			let peer = self.peers[ presenterId ];
-			if ( !peer )
-				return;
-			
-			if ( 'selfie' === presenterId )
-				self.togglePopped( false );
-			
 		}
 	}
 	
@@ -3361,7 +3324,7 @@ library.component = library.component || {};
 	
 	ns.Selfie.prototype.handleSelfMute = function( isMuted ) {
 		const self = this;
-		self.menu.setState( 'mute', isMuted );
+		//self.menu.setState( 'mute', isMuted );
 		self.audioBtn.classList.toggle( 'inverted', isMuted );
 		self.audioBtn.classList.toggle( 'danger', isMuted );
 		self.poppedMuteBtn.classList.toggle( 'danger', isMuted );
@@ -3370,7 +3333,7 @@ library.component = library.component || {};
 	
 	ns.Selfie.prototype.handleSelfBlind = function( isBlinded ) {
 		const self = this;
-		self.menu.setState( 'blind', isBlinded );
+		//self.menu.setState( 'blind', isBlinded );
 		self.videoBtn.classList.toggle( 'inverted', isBlinded );
 		self.videoBtn.classList.toggle( 'danger', isBlinded );
 		//const active = self.videoBtn.querySelector( '.camera-on' );
