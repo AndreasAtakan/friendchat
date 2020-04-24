@@ -286,11 +286,7 @@ Atleast we should be pretty safe against any unwanted pregnancies.
 		if ( !ready )
 			return;
 		
-		if ( self.mode ) {
-			if ( 'presentation' === self.mode.type )
-				self.setModePresentation();
-		}
-		
+		self.setMode();
 		self.bindConn();
 		
 		if ( 'star' === self.topology ) {
@@ -562,14 +558,17 @@ Atleast we should be pretty safe against any unwanted pregnancies.
 		const self = this;
 		console.log( 'handleMode', mode );
 		self.clearCurrentMode();
-		
-		//
-		if ( null == mode ) {
-			self.setModeNormal();
+		self.mode = mode;
+		self.setMode();
+	}
+	
+	ns.RTC.prototype.setMode = function() {
+		const self = this;
+		console.log( 'setMode', self.mode );
+		const mode = self.mode;
+		if ( null == mode )
 			return;
-		}
 		
-		//
 		const type = mode.type;
 		if ( 'presentation' === type )
 			self.setModePresentation( mode );
@@ -606,7 +605,7 @@ Atleast we should be pretty safe against any unwanted pregnancies.
 		self.modePerms = null;
 		//self.updatePermissions();
 		
-		if ( self.mode.data && ( null != self.mode.data.wasMuted ))
+		if ( self.mode && self.mode.data && ( null != self.mode.data.wasMuted ))
 			self.selfie.toggleMute( self.mode.data.wasMuted );
 		
 		self.mode = null;
@@ -2024,34 +2023,43 @@ Atleast we should be pretty safe against any unwanted pregnancies.
 	
 	ns.Selfie.prototype.updateFollowSpeaker = function() {
 		const self = this;
-		console.log( 'updateFollowSpeaker', {
-			active      : !!self.modeFollowSpeaker,
-			isSpeaking  : self.speaking.getIsSpeaker(),
-			currQuality : self.currentQuality,
-			mediaQuality : self.mediaQuality,
-		});
-		if ( !self.modeFollowSpeaker ) {
-			self.setMediaQuality();
-			return;
-		}
-		
-		if ( !self.speaking )
-			return;
-		
-		const isSpeaker = self.speaking.getIsSpeaker();
-		if ( isSpeaker )
-			self.setMediaQuality();
-		else
-			self.setMediaQuality({
-				level : 'pixel',
-			})
+		self.setMediaQuality();
 		
 	}
 	
-	ns.Selfie.prototype.setMediaQuality = function( quality ) {
+	ns.Selfie.prototype.getFollowSpeakerQuality = function( inQuality ) {
 		const self = this;
+		console.log( 'getFollowSpeakerQuality', inQuality );
+		if ( !self.modeFollowSpeaker )
+			return inQuality;
+		
+		if ( !self.speaking )
+			return inQuality;
+		
+		const isSpeaker = self.speaking.getIsSpeaker();
+		if ( isSpeaker )
+			return inQuality;
+		else
+			return {
+				level : 'pixel',
+			};
+	}
+	
+	ns.Selfie.prototype.setMediaQuality = function() {
+		const self = this;
+		let quality = self.mediaQuality;
 		console.log( 'setMediaQuality', quality );
-		quality = quality || self.mediaQuality;
+		quality = self.getFollowSpeakerQuality( quality );
+		
+		//
+		if ( self.currentQuality ) {
+			const cl = self.currentQuality.level;
+			const ql = quality.level;
+			if ( cl === ql )
+				return;
+		}
+		
+		//
 		try {
 			self.media.setQuality( quality )
 				.then( qOk )

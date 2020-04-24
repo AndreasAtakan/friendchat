@@ -2908,6 +2908,7 @@ library.rtc = library.rtc || {};
 	
 	ns.Media.prototype.setQuality = function( quality ) {
 		const self = this;
+		console.log( 'setQuality', quality );
 		return new Promise(( resolve, reject ) => {
 			// defaults
 			quality = quality || {};
