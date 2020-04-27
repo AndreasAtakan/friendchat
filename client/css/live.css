@@ -826,7 +826,6 @@ body#hello #hangup-btn i {
 	font-size: 180%;
 }
 
-
 /* Speaker only mode */
 
 .mode-speaker {
@@ -841,7 +840,7 @@ body#hello #hangup-btn i {
 	transition : opacity 0.3s;
 }
 
-.mode-speaker > .peer.speaker {
+.mode-speaker > .peer.show-speaker {
 	opacity    : 1;
 	transition : opacity 0.3s;
 }
