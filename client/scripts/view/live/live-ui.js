@@ -148,16 +148,9 @@ library.component = library.component || {};
 		self.recording.classList.toggle( 'hidden', !self.isRecording );
 	}
 	
-	ns.UI.prototype.setModeNormal = function() {
-		const self = this;
-		console.log( 'UI.setModeNormal' )
-		self.clearCurrentMode();
-	}
-	
 	ns.UI.prototype.setModePresentation = function( presenterId, isPresenter ) {
 		const self = this;
 		console.log( 'UI.setModePresentation', presenterId )
-		self.clearCurrentMode();
 		if ( isPresenter )
 			presenterId = 'selfie';
 		
@@ -166,25 +159,40 @@ library.component = library.component || {};
 		self.menu.disable( 'dragger' );
 		self.menu.disable( 'mode-speaker' );
 		self.menu.disable( 'send-receive' );
-		self.menu.setState( 'mode-presentation', true );
 		if ( !isPresenter )
 			self.menu.disable( 'mode-presentation' );
 		
-		if ( presenterId ) {
-			if ( 'selfie' === presenterId )
-				self.togglePopped( false );
-		}
+		self.menu.setState( 'mode-presentation', true );
+		if ( 'selfie' === presenterId )
+			self.togglePopped( false );
 		else
 			self.togglePopped( true );
 		
 	}
 	
-	ns.UI.prototype.setModeFollowSpeaker = function() {
+	ns.UI.prototype.clearModePresentation = function() {
 		const self = this;
-		console.log( 'UI.setModeFollowSpeaker' )
-		self.clearCurrentMode();
+		console.log( 'ui.clearModePresentation', self.presenterId );
+		self.menu.enable( 'dragger' );
+		self.menu.enable( 'mode-speaker' );
+		self.menu.enable( 'send-receive' );
+		self.menu.enable( 'mode-presentation', true );
 		
+		self.menu.setState( 'mode-presentation', false );
 		
+		self.presenterId = null;
+	}
+	
+	ns.UI.prototype.setModeFollowSpeaker = function( isActive ) {
+		const self = this;
+		console.log( 'UI.setModeFollowSpeaker', isActive );
+		if ( self.modeFollowSpeaker === isActive )
+			return;
+		
+		self.modeFollowSpeaker = isActive;
+		self.updateSelfieState();
+		self.updateGridClass();
+		self.updateModeFollowSpeaker();
 	}
 	
 	// Private
@@ -617,7 +625,7 @@ library.component = library.component || {};
 		else
 			self.peerGridOrder.splice( pidx, 1 );
 		
-		if ( self.modeSpeaker && self.currentSpeaker === peerId )
+		if ( self.modeFollowSpeaker && self.currentSpeaker === peerId )
 			self.setSpeaker();
 		
 		if ( self.peerGridOrder.length === 1 ) {
@@ -672,11 +680,16 @@ library.component = library.component || {};
 		if ( !selfie )
 			return;
 		
+		if ( self.modeFollowSpeaker && self.currentGridKlass ) {
+			container.classList.toggle( self.currentGridKlass, false );
+			return;
+		}
+		
 		self.currentGridKlass = self.currentGridKlass || 'grid1';
 		container.classList.remove( self.currentGridKlass );
 		const peerNum = getPeerNum();
 		let newGridKlass = 'grid1';
-		if ( self.modeSpeaker && self.currentSpeaker )
+		if ( self.modeFollowSpeaker && self.currentSpeaker )
 			newGridKlass = 'grid1';
 		else {
 			newGridKlass = getGridKlass( peerNum );
@@ -1209,7 +1222,7 @@ library.component = library.component || {};
 		if ( !selfie )
 			return;
 		
-		if ( self.modeSpeaker && 'selfie' === self.currentSpeaker )
+		if ( self.modeFollowSpeaker )
 			selfie.updateDisplayState( true );
 		else
 			selfie.updateDisplayState();
@@ -1219,14 +1232,14 @@ library.component = library.component || {};
 	
 	ns.UI.prototype.toggleModeSpeaker = function() {
 		const self = this;
-		self.modeSpeaker = !self.modeSpeaker;
-		if ( self.modeSpeaker )
+		self.modeFollowSpeaker = !self.modeFollowSpeaker;
+		if ( self.modeFollowSpeaker )
 			enable();
 		else
 			disable();
 		
-		self.updateModeSpeaker();
-		return self.modeSpeaker;
+		self.updateModeFollowSpeaker();
+		return self.modeFollowSpeaker;
 		
 		function enable() {
 			self.clearDragger();
@@ -1238,18 +1251,29 @@ library.component = library.component || {};
 		}
 	}
 	
-	ns.UI.prototype.updateModeSpeaker = function() {
+	ns.UI.prototype.updateModeFollowSpeaker = function() {
 		const self = this;
+		const isActive = !!self.modeFollowSpeaker;
 		const container = document.getElementById( self.peerGridId );
-		const modeSpeaker = ( !!self.modeSpeaker && !!self.currentSpeaker );
-		const speaker = self.peers[ self.currentSpeaker ];
-		if ( speaker && speaker.isInList )
-			container.classList.toggle( 'mode-speaker', false );
-		else
-			container.classList.toggle( 'mode-speaker', modeSpeaker );
+		container.classList.toggle( 'mode-speaker', isActive );
 		
-		self.updateSelfieState();
-		if ( modeSpeaker )
+		//
+		let currSpeaker = null;
+		let lastSpeaker = null;
+		console.log( 'updateModeFollowSpeaker', {
+			isActive : isActive,
+			currSpeaker : currSpeaker,
+			lastSpeaker : lastSpeaker,
+		});
+		if ( null != self.currentSpeaker )
+			currSpeaker = self.peers[ self.currentSpeaker ];
+		
+		if ( null != self.lastSpeaker )
+			lastSpeaker = self.peers[ self.lastSpeaker ];
+		
+		
+		/*
+		if ( isActive )
 			enable();
 		else
 			disable();
@@ -1265,6 +1289,7 @@ library.component = library.component || {};
 		function disable() {
 			self.reflowPeers();
 		}
+		*/
 	}
 	
 	ns.UI.prototype.setSpeaker = function( speaker ) {
@@ -1273,22 +1298,24 @@ library.component = library.component || {};
 		if ( sId === self.userId )
 			sId = 'selfie';
 		
+		self.lastSpeaker = self.currentSpeaker;
+		self.currentSpeaker = null;
+		
 		if ( !speaker || !speaker.isSpeaking )
 			unset();
 		else
 			set( sId );
 		
-		self.updateModeSpeaker();
+		self.updateModeFollowSpeaker();
 		
 		function unset() {
-			if ( !self.currentSpeaker )
+			if ( null == self.lastSpeaker )
 				return;
 			
-			const peer = self.peers[ self.currentSpeaker ];
+			const peer = self.peers[ self.lastSpeaker ];
 			if ( !peer )
 				return;
 			
-			self.currentSpeaker = false;
 			peer.setIsSpeaking( false );
 		}
 		
