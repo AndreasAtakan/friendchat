@@ -38,6 +38,10 @@ library.component = library.component || {};
 		self.isTempRoom = liveConf.isTempRoom;
 		self.localSettings = localSettings;
 		self.guestAvatar = liveConf.guestAvatar;
+		self.currentSpeaker = liveConf.rtcConf.currentSpeaker;
+		if ( self.currentSpeaker === self.userId )
+			self.currentSpeaker = 'selfie';
+		
 		self.rtc = null;
 		self.peerGridId = 'peer-grid';
 		self.peerListId = 'peer-list';
@@ -53,7 +57,6 @@ library.component = library.component || {};
 		self.isReordering = false;
 		self.peerAddQueue = [];
 		
-		self.currentSpeaker = null;
 		self.uiVisible = true;
 		self.ui = null;
 		self.uiPanes = {};
@@ -198,7 +201,7 @@ library.component = library.component || {};
 	// Private
 	
 	ns.UI.prototype.init = function( conf ) {
-		var self = this;
+		const self = this;
 		self.uiPaneMap = {
 			'init-checks'        : library.view.InitChecksPane      ,
 			'source-select'      : library.view.SourceSelectPane    ,
@@ -1271,6 +1274,27 @@ library.component = library.component || {};
 		if ( null != self.lastSpeaker )
 			lastSpeaker = self.peers[ self.lastSpeaker ];
 		
+		if ( !isActive ) {
+			if ( lastSpeaker )
+				lastSpeaker.showIsSpeaking( false );
+			
+			if ( currSpeaker )
+				currSpeaker.showIsSpeaking( false );
+			
+			return;
+		}
+		
+		if ( !currSpeaker && lastSpeaker ) {
+			lastSpeaker.showIsSpeaking( true );
+			return;
+		}
+		
+		if ( currSpeaker ) {
+			if ( lastSpeaker )
+				lastSpeaker.showIsSpeaking( false );
+			
+			currSpeaker.showIsSpeaking( true );
+		}
 		
 		/*
 		if ( isActive )
@@ -1294,17 +1318,14 @@ library.component = library.component || {};
 	
 	ns.UI.prototype.setSpeaker = function( speaker ) {
 		const self = this;
-		let sId = speaker.peerId;
-		if ( sId === self.userId )
-			sId = 'selfie';
-		
+		console.log( 'setSpeaker', speaker );
 		self.lastSpeaker = self.currentSpeaker;
 		self.currentSpeaker = null;
 		
 		if ( !speaker || !speaker.isSpeaking )
 			unset();
 		else
-			set( sId );
+			set( speaker.peerId );
 		
 		self.updateModeFollowSpeaker();
 		
@@ -1321,6 +1342,9 @@ library.component = library.component || {};
 		
 		function set( sId ) {
 			unset();
+			if ( sId === self.userId )
+				sId = 'selfie';
+			
 			const peer = self.peers[ sId ];
 			if ( !peer )
 				return;
@@ -1508,7 +1532,12 @@ library.component = library.component || {};
 	ns.Peer.prototype.setIsSpeaking = function( isSpeaker ) {
 		const self = this;
 		self.isSpeaker = isSpeaker;
-		self.el.classList.toggle( 'speaker', isSpeaker );
+	}
+	
+	ns.Peer.prototype.showIsSpeaking = function( isSpeaker ) {
+		const self = this;
+		self.showAsSpeaker = isSpeaker;
+		self.el.classList.toggle( 'show-speaker', isSpeaker );
 		self.reflow();
 	}
 	

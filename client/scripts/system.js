@@ -2342,13 +2342,14 @@ library.rtc = library.rtc || {};
 			isStream    : viewConf.isStream,
 			logTail     : roomConf.logTail,
 			rtcConf     : {
-				ICE         : roomConf.ICE,
-				permissions : viewConf.permissions,
-				quality     : roomConf.quality,
-				mode        : roomConf.mode,
-				sourceId    : roomConf.sourceId,
-				topology    : roomConf.topology,
-				isRecording : roomConf.isRecording,
+				ICE            : roomConf.ICE,
+				permissions    : viewConf.permissions,
+				quality        : roomConf.quality,
+				mode           : roomConf.mode,
+				sourceId       : roomConf.sourceId,
+				topology       : roomConf.topology,
+				currentSpeaker : roomConf.currentSpeaker,
+				isRecording    : roomConf.isRecording,
 			},
 		};
 		self.view = new library.view.Live(
