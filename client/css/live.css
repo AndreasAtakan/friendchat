@@ -623,7 +623,7 @@ body#hello #hangup-btn i {
 
 .grid1 > div {
 	height : 100%;
-	width : 100%;
+	width  : 100%;
 }
 
 .grid2 > div,
@@ -634,8 +634,8 @@ body#hello #hangup-btn i {
 .grid7 > div,
 .grid8 > div,
 .grid9 > div {
-	height: 100%;
-	width: 100%;
+	height : 100%;
+	width  : 100%;
 }
 
 /* square-ish */
@@ -834,9 +834,14 @@ body#hello #hangup-btn i {
 }
 
 .mode-speaker > .peer {
-	display: none;
+	position   : absolute;
+	width      : 100%;
+	height     : 100%;
+	opacity    : 0;
+	transition : opacity 0.3s;
 }
 
 .mode-speaker > .peer.speaker {
-	display: inherit;
+	opacity    : 1;
+	transition : opacity 0.3s;
 }

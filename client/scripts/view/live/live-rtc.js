@@ -286,7 +286,7 @@ Atleast we should be pretty safe against any unwanted pregnancies.
 		if ( !ready )
 			return;
 		
-		self.setMode();
+		self.applyMode();
 		self.bindConn();
 		
 		if ( 'star' === self.topology ) {
@@ -557,24 +557,32 @@ Atleast we should be pretty safe against any unwanted pregnancies.
 	ns.RTC.prototype.handleMode = function( mode ) {
 		const self = this;
 		console.log( 'handleMode', mode );
+		if ( !mode === !self.mode ) {
+			if ( null == mode )
+				return;
+			
+			if ( mode.type === self.mode.type )
+				return;
+		}
+		
 		self.clearCurrentMode();
 		self.mode = mode;
-		self.setMode();
+		self.applyMode();
 	}
 	
-	ns.RTC.prototype.setMode = function() {
+	ns.RTC.prototype.applyMode = function() {
 		const self = this;
-		console.log( 'setMode', self.mode );
+		console.log( 'applyMode', self.mode );
 		const mode = self.mode;
 		if ( null == mode )
 			return;
 		
 		const type = mode.type;
 		if ( 'presentation' === type )
-			self.setModePresentation( mode );
+			self.setModePresentation();
 		
 		if ( 'follow-speaker' === type )
-			self.setModeFollowSpeaker( mode );
+			self.setModeFollowSpeaker();
 		
 		self.updatePermissions();
 	}
@@ -595,32 +603,24 @@ Atleast we should be pretty safe against any unwanted pregnancies.
 	
 	ns.RTC.prototype.setModeNormal = function() {
 		const self = this;
-		self.menu.enable( 'mode-speaker' );
-		self.menu.enable( 'send-receive' );
-		self.menu.enable( 'mode-presentation', true );
-		//self.menu.enable( 'toggle-screen-share' );
-		self.menu.enable( 'dragger' );
-		self.menu.setState( 'mode-presentation', false );
+		
 		self.ui.setModeNormal();
 		self.modePerms = null;
 		//self.updatePermissions();
 		
-		if ( self.mode && self.mode.data && ( null != self.mode.data.wasMuted ))
-			self.selfie.toggleMute( self.mode.data.wasMuted );
 		
 		self.mode = null;
 		//self.updatePermissions();
 	}
 	
-	ns.RTC.prototype.setModePresentation = function( conf ) {
+	ns.RTC.prototype.setModePresentation = function() {
 		const self = this;
-		console.log( 'rtc.setModePresentation', conf );
-		if ( !conf ) {
+		if ( !self.mode ) {
 			console.log( 'live.setModePresentation - invalid data', conf );
 			return;
 		}
 		
-		self.mode = conf;
+		console.log( 'rtc.setModePresentation', self.mode );
 		const presenterId = self.mode.data.owner;
 		const isPresenter = ( presenterId === self.userId );
 		if ( !isPresenter ) {
@@ -661,6 +661,11 @@ Atleast we should be pretty safe against any unwanted pregnancies.
 	
 	ns.RTC.prototype.clearModePresentation = function() {
 		const self = this;
+		if (  null != self.mode.data.wasMuted )
+			self.selfie.toggleMute( self.mode.data.wasMuted );
+		
+		self.ui.clearModePresentation();
+		self.modePerms = null;
 	}
 	
 	ns.RTC.prototype.setModeFollowSpeaker = function( conf ) {
@@ -669,13 +674,13 @@ Atleast we should be pretty safe against any unwanted pregnancies.
 		self.mode = conf;
 		self.ui.setModeFollowSpeaker( true );
 		self.selfie.setModeFollowSpeaker( true );
-		self.modePerms = {};
+		self.modePerms = null;
 	}
 	
 	ns.RTC.prototype.clearModeFollowSpeaker = function() {
 		const self = this;
-		self.ui.setModeFollowSpeaker( false );
 		self.selfie.setModeFollowSpeaker( false );
+		self.ui.setModeFollowSpeaker( false );
 	}
 	
 	ns.RTC.prototype.updateMobileRestrictions = function() {
