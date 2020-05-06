@@ -21,6 +21,10 @@
 	
 }
 
+#peer-thumb-grid {
+	padding : 0.2em;
+}
+
 #play-container {
 }
 
@@ -74,6 +78,12 @@ i.svg.camera-off {
 .peer.in-grid {
 	border-radius: 3px;
 	border: 2px solid transparent;
+}
+
+.peer.in-thumbs,
+.thumb-wrap {
+	height : 3em;
+	width  : 3em;
 }
 
 .peer .stream-container {

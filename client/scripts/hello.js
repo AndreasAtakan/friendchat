@@ -1149,7 +1149,6 @@ var hello = null;
 	
 	ns.Hello.prototype.receiveMessage = function( msg ) {
 		const self = this;
-		console.log( 'Hello.receiveMessage - NOOP', msg );
 	}
 	
 	ns.Hello.prototype.handlePushNotie = function( event, view ) {

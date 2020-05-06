@@ -78,13 +78,12 @@ Atleast we should be pretty safe against any unwanted pregnancies.
 		self.mode = conf.rtcConf.mode || null;
 		self.topology = conf.rtcConf.topology || 'peer';
 		self.isRecording = conf.rtcConf.isRecording || false;
+		self.speaking = conf.rtcConf.speaking;
 		self.quality = conf.rtcConf.quality || null;
 		self.permissions = conf.rtcConf.permissions;
 		self.localSettings = conf.localSettings || {};
 		self.onclose = onclose;
 		self.onready = onready;
-		
-		console.log( 'RTC - localsettings', self.localSettings );
 		
 		self.peers = {};
 		self.peerIds = [];
@@ -539,9 +538,9 @@ Atleast we should be pretty safe against any unwanted pregnancies.
 		}
 	}
 	
-	ns.RTC.prototype.handleSpeaking = function( speaker ) {
+	ns.RTC.prototype.handleSpeaking = function( speaking ) {
 		const self = this;
-		self.ui.setSpeaker( speaker );
+		self.ui.setSpeaker( speaking );
 	}
 	
 	ns.RTC.prototype.handleQuality = function( quality ) {
@@ -1221,6 +1220,7 @@ Atleast we should be pretty safe against any unwanted pregnancies.
 			identity      : identity,
 			browser       : self.browser,
 			permissions   : self.permissions,
+			speaking      : self.speaking,
 			quality       : self.quality,
 			localSettings : self.localSettings,
 			isAdmin       : self.isAdmin,
@@ -1409,6 +1409,7 @@ Atleast we should be pretty safe against any unwanted pregnancies.
 		self.menu = conf.menu;
 		self.browser = conf.browser;
 		self.identity = conf.identity;
+		self.userId = self.identity.clientId;
 		self.permissions = conf.permissions;
 		self.localSettings = conf.localSettings;
 		self.mediaQuality = conf.quality || {
@@ -1433,7 +1434,7 @@ Atleast we should be pretty safe against any unwanted pregnancies.
 		self.isChrome = null;
 		self.isFirefox = null;
 		
-		self.init();
+		self.init( conf.speaking );
 	}
 	
 	ns.Selfie.prototype = Object.create( library.component.EventEmitter.prototype );
@@ -1541,7 +1542,7 @@ Atleast we should be pretty safe against any unwanted pregnancies.
 	
 	// Private
 	
-	ns.Selfie.prototype.init =function() {
+	ns.Selfie.prototype.init =function( speaking ) {
 		const self = this;
 		const ignoreSysMute = self.localSettings[ 'ignore-system-mute' ];
 		if ( ignoreSysMute )
@@ -1556,6 +1557,11 @@ Atleast we should be pretty safe against any unwanted pregnancies.
 			onSpeaking
 		);
 		
+		if ( null != speaking ) {
+			if ( speaking.current == self.userId )
+				self.speaking.setIsSpeaker( true );
+		}
+		
 		function onSpeaking( isSpeaking ) {
 			console.log( 'onSpeaking', isSpeaking );
 			const speaking = {
@@ -1569,21 +1575,22 @@ Atleast we should be pretty safe against any unwanted pregnancies.
 		}
 		
 		self.conn.on( 'speaking', speaking );
-		function speaking( speaker ) {
+		function speaking( speaking ) {
 			console.log( 'speaking', {
-				speaker : speaker,
-				iden    : self.identity,
-				cId     : self.id,
+				speaking : speaking,
+				userId   : self.userId,
+				cId      : self.id,
 			});
+			
 			let isSpeaker = false;
-			if ( speaker.peerId === self.identity.clientId )
-				isSpeaker = speaker.isSpeaking;
+			if ( speaking.current === self.userId )
+				isSpeaker = true;
 			
 			if ( !speaking )
 				return;
 			
 			self.speaking.setIsSpeaker( isSpeaker );
-			self.updateFollowSpeaker();
+			self.updateFollowSpeaker( speaking );
 		}
 		
 		//
@@ -2026,22 +2033,31 @@ Atleast we should be pretty safe against any unwanted pregnancies.
 		self.emit( 'quality', level );
 	}
 	
-	ns.Selfie.prototype.updateFollowSpeaker = function() {
+	ns.Selfie.prototype.updateFollowSpeaker = function( speaking ) {
 		const self = this;
+		self.speaker = speaking;
 		self.setMediaQuality();
-		
 	}
 	
 	ns.Selfie.prototype.getFollowSpeakerQuality = function( inQuality ) {
 		const self = this;
-		console.log( 'getFollowSpeakerQuality', inQuality );
+		console.log( 'getFollowSpeakerQuality', {
+			speaker   : self.speaker,
+			inQuality : inQuality,
+		});
 		if ( !self.modeFollowSpeaker )
 			return inQuality;
 		
-		if ( !self.speaking )
+		if ( !self.speaker )
 			return inQuality;
 		
-		const isSpeaker = self.speaking.getIsSpeaker();
+		const isSpeaker = false;
+		if ( self.speaker.current == self.userId )
+			isSpeaker = true;
+		
+		if ( !self.speaker.current && self.speaker.last == self.userId )
+			isSpeaker = true;
+		
 		if ( isSpeaker )
 			return inQuality;
 		else

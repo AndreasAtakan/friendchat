@@ -646,7 +646,12 @@ var friend = window.friend || {}; // already instanced stuff
 		self.initAppEvent();
 		
 		function unhandledEvent( type, data ) {
-			self.receiveMessage( data );
+			const e = {
+				type : type,
+				data : data,
+			};
+			console.log( 'AppEvent - unhandled event', e );
+			self.receiveMessage( e );
 		}
 	}
 	
