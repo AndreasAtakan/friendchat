@@ -3688,6 +3688,9 @@ The menu will remove itself if it loses focus or a menu item is clicked
 			self.isVisible = show;
 		
 		self.overlay.classList.toggle( 'hidden', !self.isVisible );
+		if ( self.isVisible )
+			self.updatePosition();
+		
 		self.emit( 'visible', self.isVisible );
 	}
 	
@@ -3740,15 +3743,17 @@ The menu will remove itself if it loses focus or a menu item is clicked
 			y : ap.y + ( pos.offsetY || 0 ),
 		}
 		
-		/*
+		const boxWidth = self.overlay.clientWidth;
+		const boxHeight = self.overlay.clientHeight;
 		console.log( 'possies', {
 			pos : pos,
 			screen : screen,
 			anchor : anchor,
 			ap  : ap,
 			op  : op,
+			boxW : boxWidth,
+			boxH : boxHeight,
 		});
-		*/
 		
 		if ( 'bottom-right' === pos.self ) {
 			self.overlay.style.right = ( screen.width - op.x ) + 'px';
@@ -3760,7 +3765,7 @@ The menu will remove itself if it loses focus or a menu item is clicked
 		}
 		
 		if ( 'bottom-center' === pos.self ) {
-			self.overlay.style.left = op.x + 'px';
+			self.overlay.style.left = ( op.x - ( boxWidth / 2 )) + 'px';
 			self.overlay.style.bottom = ( screen.height - op.y ) + 'px';
 		}
 		
@@ -3814,6 +3819,7 @@ The menu will remove itself if it loses focus or a menu item is clicked
 			};
 			
 			const boxWidth = self.overlay.clientWidth;
+			const boxHeight = self.overlay.clientHeight;
 			/*
 			console.log( 'possies', {
 				pos : pos,

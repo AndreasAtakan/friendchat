@@ -69,8 +69,10 @@ library.component = library.component || {};
 		const pIndex = self.peerOrder.indexOf( peerId );
 		if ( -1 == pIndex ) {
 			self.peerOrder.push( peerId );
-			self.setWrap( peerId );
 		}
+		
+		if ( !self.peerMap[ peerId ])
+			self.setWrap( peerId );
 		
 		self.peers[ peerId ] = peerEl;
 		self.set( peerId );
@@ -87,7 +89,7 @@ library.component = library.component || {};
 		const self = this;
 		console.log( 'ThumbGrid.remove', peerId );
 		self.peerOrder = self.peerOrder.filter( pId => pId != peerId );
-		self.unset( peerId );
+		return self.unset( peerId );
 	}
 	
 	ns.ThumbGrid.prototype.close = function() {
@@ -139,6 +141,8 @@ library.component = library.component || {};
 			el     : el,
 			maap   : self.peerMap,
 		});
+		
+		self.updatePosition();
 		return wId;
 	}
 	
@@ -162,6 +166,19 @@ library.component = library.component || {};
 	ns.ThumbGrid.prototype.unset = function( pId ) {
 		const self = this;
 		console.log( 'ThumbGrid.unset ???', pId );
+		const wId = self.peerMap[ pId ];
+		if ( !wId )
+			return null;
+		
+		const pEl = document.getElementById( pId );
+		const wEl = document.getElementById( wId );
+		delete self.peerMap[ pId ];
+		delete self.peers[ pId ];
+		wEl.parentNode.removeChild( wEl );
+		
+		self.updatePosition();
+		
+		return pEl;
 	}
 	
 })( library.view );

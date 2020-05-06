@@ -2051,7 +2051,7 @@ Atleast we should be pretty safe against any unwanted pregnancies.
 		if ( !self.speaker )
 			return inQuality;
 		
-		const isSpeaker = false;
+		let isSpeaker = false;
 		if ( self.speaker.current == self.userId )
 			isSpeaker = true;
 		

@@ -22,7 +22,8 @@
 }
 
 #peer-thumb-grid {
-	padding : 0.2em;
+	padding : 0.1em;
+	background-color : rgb( 0, 0, 0, 0.6 );
 }
 
 #play-container {
@@ -84,6 +85,10 @@ i.svg.camera-off {
 .thumb-wrap {
 	height : 3em;
 	width  : 3em;
+}
+
+.thumb-wrap:not(:first-child) {
+	margin-left : 0.1em;
 }
 
 .peer .stream-container {

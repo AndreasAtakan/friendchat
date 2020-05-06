@@ -39,9 +39,6 @@ library.component = library.component || {};
 		self.localSettings = localSettings;
 		self.guestAvatar = liveConf.guestAvatar;
 		self.speaking = liveConf.rtcConf.speaking;
-		if ( self.currentSpeaker === self.userId )
-			self.currentSpeaker = 'selfie';
-		
 		self.rtc = null;
 		self.peerGridId = 'peer-grid';
 		self.peerListId = 'peer-list';
@@ -215,10 +212,8 @@ library.component = library.component || {};
 			'chat'               : library.view.ChatPane            ,
 		};
 		
-		if ( self.speaking ) {
-			self.currentSpeaker = self.speaking.current;
-			self.lastSpeaker = self.speaking.last;
-		}
+		if ( self.speaking )
+			self.setSpeaker( self.speaking );
 		
 		self.bindEvents();
 		//const peersEl = document.getElementById( self.ui );
@@ -549,6 +544,9 @@ library.component = library.component || {};
 		// add to ui
 		self.peers[ pid ] = viewPeer;
 		self.peerIds.push( pid );
+		if ( self.modeFollowSpeaker )
+			self.thumbGrid.add( pid, viewPeer.el );
+		
 		self.updatePeerMode( pid );
 		self.updateMenu();
 		self.updateVoiceListMode();
@@ -599,7 +597,14 @@ library.component = library.component || {};
 	ns.UI.prototype.updatePeerMode = function( peerId ) {
 		const self = this;
 		const peer = self.peers[ peerId ];
-		console.log( 'updatePeerMode', peer.el );
+		console.trace( 'updatePeerMode', {
+			id            : peerId,
+			el            : peer.el,
+			voiceOnly     : self.isVoiceOnly,
+			followSpeaker : self.modeFollowSpeaker,
+			currentS      : self.currentSpeaker,
+			lastS         : self.lastSpeaker,
+		});
 		if ( self.isVoiceOnly ) {
 			setInList( peer );
 			return;
@@ -618,17 +623,26 @@ library.component = library.component || {};
 		self.updateGridClass();
 		
 		function setInList( peer ) {
+			if ( peer.isInList )
+				return;
+			
 			peer.setInList();
 			self.audioList.add( peer.el );
 		}
 		
 		function setInGrid( peer ) {
+			if ( peer.isInGrid )
+				return;
+			
 			peer.setInGrid();
 			self.gridContainer.appendChild( peer.el );
 			self.peerGridOrder.push( peer.id );
 		}
 		
 		function setInThumbs( peer ) {
+			if ( peer.isInThumbs )
+				return;
+			
 			peer.setInThumbs();
 			self.thumbGrid.add( peer.id, peer.el );
 		}
@@ -659,17 +673,19 @@ library.component = library.component || {};
 			model.release( 'popped' );
 		}
 		
+		if ( self.thumbGrid )
+			self.thumbGrid.remove( peerId );
+		
+		if ( peer.isInList )
+			self.audioList.remove( peerId );
+		
+		const pidx = self.peerGridOrder.indexOf( peerId );
+		if ( -1 != pidx )
+			self.peerGridOrder.splice( pidx, 1 );
+		
 		peer.close();
 		delete self.peers[ peerId ];
 		self.peerIds = Object.keys( self.peers );
-		let pidx = self.peerGridOrder.indexOf( peerId );
-		if ( -1 === pidx )
-			self.audioList.remove( peerId );
-		else
-			self.peerGridOrder.splice( pidx, 1 );
-		
-		if ( self.modeFollowSpeaker && self.currentSpeaker === peerId )
-			self.setSpeaker();
 		
 		if ( self.peerIds.length === 1 ) {
 			self.peers[ 'selfie' ].stopDurationTimer();
@@ -761,16 +777,15 @@ library.component = library.component || {};
 		}
 		
 		function getPeerNum() {
-			var numberOfPeers = self.peerGridOrder.length;
-			var peerNum = numberOfPeers;
+			let peerNum = self.peerGridOrder.length;
 			
 			if ( self.nestedApp )
 				peerNum += 1;
 			
-			
 			if ( !selfie.isInList && selfie.isPopped )
 				peerNum -= 1;
 			
+			console.log( 'peerNum', peerNum );
 			return peerNum;
 		}
 	}
@@ -806,7 +821,7 @@ library.component = library.component || {};
 	
 	ns.UI.prototype.reflowPeers = function() {
 		const self = this;
-		self.peerGridOrder.forEach( callReflow );
+		self.peerIds.forEach( callReflow );
 		function callReflow( peerId ) {
 			var peer = self.peers[ peerId ];
 			if ( !peer )
@@ -876,13 +891,19 @@ library.component = library.component || {};
 	
 	ns.UI.prototype.updateHasVideo = function( peerId, hasVideo ) {
 		const self = this;
+		console.log( 'updateHasVideo', {
+			pid   : peerId,
+			video : hasVideo,
+		});
+		return;
+		
 		const peer = self.peers[ peerId ];
 		if ( !peer ) {
 			console.log( 'updateHasVideo - no peer for', peerId );
 			return;
 		}
 		
-		if ( hasVideo )
+		if ( self.modeFollowSpeaker || hasVideo )
 			moveToPeers( peer );
 		else
 			moveToAudioList( peer );
@@ -1059,7 +1080,7 @@ library.component = library.component || {};
 		self.uiVisible = !self.uiVisible;
 		self.toggleUI();
 		
-		self.peerGridOrder.forEach( updateUI );
+		self.peerIds.forEach( updateUI );
 		function updateUI( pId ) {
 			var peer = self.peers[ pId ];
 			if ( !peer ) {
@@ -1427,7 +1448,6 @@ library.component = library.component || {};
 			if ( !peer )
 				return;
 			
-			self.currentSpeaker = sId;
 			peer.setIsSpeaking( true );
 		}
 	}
