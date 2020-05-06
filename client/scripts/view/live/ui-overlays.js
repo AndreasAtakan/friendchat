@@ -26,6 +26,165 @@ library.view = library.view || {};
 library.component = library.component || {};
 
 /*
+	ThumbGrid
+*/
+
+(function( ns, undefined ) {
+	ns.ThumbGrid = function( anchor ) {
+		const self = this;
+		console.log( 'ThumbGrid', anchor );
+		self.id = 'peer-thumb-grid';
+		self.peers = {};
+		self.peerMap = {};
+		
+		const conf = {
+			css  : null,
+			show : false,
+			position : {
+				outside : {
+					parent  : 'top-center',
+					self    : 'bottom-center',
+					offsetY : -10,
+				},
+			},
+		};
+		library.component.Overlay.call( self, anchor, conf );
+	}
+	
+	ns.ThumbGrid.prototype = 
+		Object.create( library.component.Overlay.prototype );
+	
+	// Public
+	
+	ns.ThumbGrid.prototype.setOrder = function( peerIds ) {
+		const self = this;
+		console.log( 'ThumbGrid.setOrder', peerIds );
+		self.peerOrder = peerIds;
+		self.updateOrder();
+	}
+	
+	ns.ThumbGrid.prototype.add = function( peerId, peerEl ) {
+		const self = this;
+		console.log( 'ThumbGrid.add', [ peerId, !!peerEl ]);
+		const pIndex = self.peerOrder.indexOf( peerId );
+		if ( -1 == pIndex ) {
+			self.peerOrder.push( peerId );
+		}
+		
+		if ( !self.peerMap[ peerId ])
+			self.setWrap( peerId );
+		
+		self.peers[ peerId ] = peerEl;
+		self.set( peerId );
+	}
+	
+	ns.ThumbGrid.prototype.swap = function( peerIn, peerOut ) {
+		const self = this;
+		console.log( 'ThumbGrid.swap', [ peerIn, peerOut ]);
+		self.set( peerIn );
+		self.unset( peerOut );
+	}
+	
+	ns.ThumbGrid.prototype.remove = function( peerId ) {
+		const self = this;
+		console.log( 'ThumbGrid.remove', peerId );
+		self.peerOrder = self.peerOrder.filter( pId => pId != peerId );
+		return self.unset( peerId );
+	}
+	
+	ns.ThumbGrid.prototype.close = function() {
+		const self = this;
+		self.closeOverlay();
+		delete self.peers;
+	}
+	
+	// Overlay implementations
+	
+	ns.ThumbGrid.prototype.build = function() {
+		const self = this;
+		const el = hello.template.getElement( 'thumb-grid-tmpl', {});
+		return el;
+	}
+	
+	ns.ThumbGrid.prototype.bind = function() {
+		const self = this;
+		self.grid = document.getElementById( self.id );
+		self.ph = document.getElementById( self.phId );
+	}
+	
+	// Private
+	
+	ns.ThumbGrid.prototype.updateOrder = function() {
+		const self = this;
+		self.peerOrder.forEach( pId => {
+			let wrapId = self.peerMap[ pId ];
+			if ( null == wrapId )
+				wrapId = self.setWrap( pId );
+			
+			const wrap = document.getElementById( wrapId );
+			self.grid.appendChild( wrap );
+		});
+	}
+	
+	ns.ThumbGrid.prototype.setWrap = function( peerId ) {
+		const self = this;
+		const wId = friendUP.tool.uid( 'warp' );
+		self.peerMap[ peerId ] = wId;
+		const conf = {
+			id : wId,
+		};
+		const el = hello.template.getElement( 'thumb-grid-wrap-tmpl', conf );
+		self.grid.appendChild( el );
+		console.log( 'ThumbGrid.setWrap', {
+			peerId : peerId,
+			wrapId : wId,
+			el     : el,
+			maap   : self.peerMap,
+		});
+		
+		self.updatePosition();
+		return wId;
+	}
+	
+	ns.ThumbGrid.prototype.set = function( pId ) {
+		const self = this;
+		const pEl = self.peers[ pId ];
+		if ( !pEl ) {
+			console.log( 'ThumbGrid.set - no peer el for', {
+				pId   : pId,
+				peers : self.peers,
+			});
+			return;
+		}
+		
+		console.log( 'pEl', pEl );
+		const wId = self.peerMap[ pId ];
+		const wrap = document.getElementById( wId );
+		wrap.appendChild( pEl );
+	}
+	
+	ns.ThumbGrid.prototype.unset = function( pId ) {
+		const self = this;
+		console.log( 'ThumbGrid.unset ???', pId );
+		const wId = self.peerMap[ pId ];
+		if ( !wId )
+			return null;
+		
+		const pEl = document.getElementById( pId );
+		const wEl = document.getElementById( wId );
+		delete self.peerMap[ pId ];
+		delete self.peers[ pId ];
+		wEl.parentNode.removeChild( wEl );
+		
+		self.updatePosition();
+		
+		return pEl;
+	}
+	
+})( library.view );
+
+
+/*
 	Overlay is defined in components/viewComponents.js
 */
 

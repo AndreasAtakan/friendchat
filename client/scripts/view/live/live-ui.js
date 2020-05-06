@@ -38,10 +38,7 @@ library.component = library.component || {};
 		self.isTempRoom = liveConf.isTempRoom;
 		self.localSettings = localSettings;
 		self.guestAvatar = liveConf.guestAvatar;
-		self.currentSpeaker = liveConf.rtcConf.currentSpeaker;
-		if ( self.currentSpeaker === self.userId )
-			self.currentSpeaker = 'selfie';
-		
+		self.speaking = liveConf.rtcConf.speaking;
 		self.rtc = null;
 		self.peerGridId = 'peer-grid';
 		self.peerListId = 'peer-list';
@@ -195,6 +192,7 @@ library.component = library.component || {};
 		self.modeFollowSpeaker = isActive;
 		self.updateSelfieState();
 		self.updateGridClass();
+		self.toggleThumbGrid();
 		self.updateModeFollowSpeaker();
 	}
 	
@@ -213,6 +211,13 @@ library.component = library.component || {};
 			'menu'               : library.view.MenuPane            ,
 			'chat'               : library.view.ChatPane            ,
 		};
+		
+		if ( self.speaking )
+			self.setSpeaker( self.speaking );
+		
+		self.bindEvents();
+		//const peersEl = document.getElementById( self.ui );
+		self.thumbGrid = new library.view.ThumbGrid( self.ui, self.peers );
 		
 		/*
 		let queueConf = {
@@ -246,8 +251,6 @@ library.component = library.component || {};
 				},
 			});
 		}
-		
-		self.bindEvents();
 		
 		self.addSettings();
 		let share = null;
@@ -541,31 +544,18 @@ library.component = library.component || {};
 		// add to ui
 		self.peers[ pid ] = viewPeer;
 		self.peerIds.push( pid );
-		if ( self.isVoiceOnly )
-			addToVoiceList( viewPeer );
-		else
-			addToGrid( viewPeer );
+		if ( self.modeFollowSpeaker )
+			self.thumbGrid.add( pid, viewPeer.el );
 		
+		self.updatePeerMode( pid );
 		self.updateMenu();
 		self.updateVoiceListMode();
 		
 		viewPeer.on( 'status', showStatus );
 		
 		// start session duration on selfie when the first peer is added
-		if ( self.peerGridOrder.length === 2 )
+		if ( self.peerIds.length === 2 )
 			self.peers[ 'selfie' ].startDurationTimer();
-		
-		function addToVoiceList( peer ) {
-			peer.setIsInList( true );
-			self.audioList.add( peer.el );
-		}
-		
-		function addToGrid( peer ) {
-			self.gridContainer.appendChild( viewPeer.el );
-			viewPeer.el.classList.toggle( 'in-grid', true );
-			self.peerGridOrder.push( viewPeer.id );
-			self.updateGridClass();
-		}
 		
 		// show/hide waiting splash
 		self.updateWaiting();
@@ -604,9 +594,73 @@ library.component = library.component || {};
 		}
 	}
 	
+	ns.UI.prototype.updatePeerMode = function( peerId ) {
+		const self = this;
+		const peer = self.peers[ peerId ];
+		console.trace( 'updatePeerMode', {
+			id            : peerId,
+			el            : peer.el,
+			voiceOnly     : self.isVoiceOnly,
+			followSpeaker : self.modeFollowSpeaker,
+			currentS      : self.currentSpeaker,
+			lastS         : self.lastSpeaker,
+		});
+		if ( self.isVoiceOnly ) {
+			setInList( peer );
+			return;
+		}
+		
+		if ( self.modeFollowSpeaker ) {
+			if ( checkIsSpeaker( peerId ))
+				setInGrid( peer );
+			else
+				setInThumbs( peer );
+		} else {
+			setInGrid( peer );
+		}
+		
+		peer.reflow();
+		self.updateGridClass();
+		
+		function setInList( peer ) {
+			if ( peer.isInList )
+				return;
+			
+			peer.setInList();
+			self.audioList.add( peer.el );
+		}
+		
+		function setInGrid( peer ) {
+			if ( peer.isInGrid )
+				return;
+			
+			peer.setInGrid();
+			self.gridContainer.appendChild( peer.el );
+			self.peerGridOrder.push( peer.id );
+		}
+		
+		function setInThumbs( peer ) {
+			if ( peer.isInThumbs )
+				return;
+			
+			peer.setInThumbs();
+			self.thumbGrid.add( peer.id, peer.el );
+		}
+		
+		function checkIsSpeaker( peerId ) {
+			if ( self.currentSpeaker === peerId )
+				return true;
+			
+			if (( null == self.currentSpeaker ) && ( self.lastSpeaker === peerId ))
+				return true;
+			
+			return false;
+		}
+	}
+	
 	ns.UI.prototype.removePeer = function( peerId ) {
-		var self = this;
-		var peer = self.peers[ peerId ];
+		const self = this;
+		const peer = self.peers[ peerId ];
 		if ( !peer ) {
 			console.log( 'live - no peer found for ', peerId );
 			return;
@@ -619,19 +673,21 @@ library.component = library.component || {};
 			model.release( 'popped' );
 		}
 		
+		if ( self.thumbGrid )
+			self.thumbGrid.remove( peerId );
+		
+		if ( peer.isInList )
+			self.audioList.remove( peerId );
+		
+		const pidx = self.peerGridOrder.indexOf( peerId );
+		if ( -1 != pidx )
+			self.peerGridOrder.splice( pidx, 1 );
+		
 		peer.close();
 		delete self.peers[ peerId ];
 		self.peerIds = Object.keys( self.peers );
-		let pidx = self.peerGridOrder.indexOf( peerId );
-		if ( -1 === pidx )
-			self.audioList.remove( peerId );
-		else
-			self.peerGridOrder.splice( pidx, 1 );
 		
-		if ( self.modeFollowSpeaker && self.currentSpeaker === peerId )
-			self.setSpeaker();
-		
-		if ( self.peerGridOrder.length === 1 ) {
+		if ( self.peerIds.length === 1 ) {
 			self.peers[ 'selfie' ].stopDurationTimer();
 			self.togglePopped( false );
 			delete self.selfiePopped;
@@ -683,8 +739,16 @@ library.component = library.component || {};
 		if ( !selfie )
 			return;
 		
-		if ( self.modeFollowSpeaker && self.currentGridKlass ) {
-			container.classList.toggle( self.currentGridKlass, false );
+		if ( self.modeFollowSpeaker ) {
+			if ( self.currentGridKlass ) {
+				if ( 'grid1' === self.currentGridKlass )
+					return;
+				
+				container.classList.toggle( self.currentGridKlass, false );
+			}
+			
+			self.currentGridKlass = 'grid1';
+			container.classList.toggle( self.currentGridKlass, true );
 			return;
 		}
 		
@@ -713,23 +777,51 @@ library.component = library.component || {};
 		}
 		
 		function getPeerNum() {
-			var numberOfPeers = self.peerGridOrder.length;
-			var peerNum = numberOfPeers;
+			let peerNum = self.peerGridOrder.length;
 			
 			if ( self.nestedApp )
 				peerNum += 1;
 			
-			
 			if ( !selfie.isInList && selfie.isPopped )
 				peerNum -= 1;
 			
+			console.log( 'peerNum', peerNum );
 			return peerNum;
 		}
 	}
 	
+	ns.UI.prototype.toggleThumbGrid = function() {
+		const self = this;
+		if ( self.modeFollowSpeaker )
+			enable();
+		else
+			disable();
+		
+		function enable() {
+			const curr = self.currentSpeaker;
+			const last = self.lastSpeaker;
+			let check = null;
+			if ( curr )
+				check = curr;
+			
+			if ( !curr && last )
+				check = last;
+			
+			self.thumbGrid.setOrder( self.peerIds );
+			self.thumbGrid.show( true );
+			self.peerIds.forEach( pId => {
+				self.updatePeerMode( pId );
+			});
+		}
+		
+		function disable() {
+			
+		}
+	}
+	
 	ns.UI.prototype.reflowPeers = function() {
-		var self = this;
-		self.peerGridOrder.forEach( callReflow );
+		const self = this;
+		self.peerIds.forEach( callReflow );
 		function callReflow( peerId ) {
 			var peer = self.peers[ peerId ];
 			if ( !peer )
@@ -763,19 +855,19 @@ library.component = library.component || {};
 	ns.UI.prototype.updateVoiceListMode = function() {
 		const self = this;
 		const ids = Object.keys( self.peers );
-		if ( !ids.length )
+		if ( !self.peerIds.length )
 			return;
 		
-		if ( self.isVoiceOnly && hasMaxTwoPeers( ids ) && hasNoVideoPeers() )
-			setToItems( ids );
+		if ( self.isVoiceOnly && hasMaxTwoPeers() && hasNoVideoPeers() )
+			setToItems();
 		else
-			setToRows( ids );
+			setToRows();
 		
 		self.audioListEl.classList.toggle( 'large-items', self.isVoiceListLarge );
 		updatePeers( ids );
 		
-		function setToItems( ids ) { self.isVoiceListLarge = true; }
-		function setToRows( ids ) { self.isVoiceListLarge = false; }
+		function setToItems() { self.isVoiceListLarge = true; }
+		function setToRows() { self.isVoiceListLarge = false; }
 		
 		function updatePeers( ids ) {
 			ids.forEach( toggleLarge );
@@ -786,7 +878,7 @@ library.component = library.component || {};
 		}
 		
 		function hasMaxTwoPeers( ids ) {
-			if ( 2 >= ids.length )
+			if ( 2 >= self.peerIds.length )
 				return true;
 			else
 				return false;
@@ -799,13 +891,19 @@ library.component = library.component || {};
 	
 	ns.UI.prototype.updateHasVideo = function( peerId, hasVideo ) {
 		const self = this;
+		console.log( 'updateHasVideo', {
+			pid   : peerId,
+			video : hasVideo,
+		});
+		return;
+		
 		const peer = self.peers[ peerId ];
 		if ( !peer ) {
 			console.log( 'updateHasVideo - no peer for', peerId );
 			return;
 		}
 		
-		if ( hasVideo )
+		if ( self.modeFollowSpeaker || hasVideo )
 			moveToPeers( peer );
 		else
 			moveToAudioList( peer );
@@ -817,7 +915,7 @@ library.component = library.component || {};
 			
 			self.audioList.remove( pid );
 			self.peerGridOrder.push( pid );
-			peer.setIsInList( false );
+			peer.setInList( false );
 			self.gridContainer.appendChild( peer.el );
 			if ( 'selfie' === peer.id )
 				self.updateSelfieState();
@@ -830,7 +928,7 @@ library.component = library.component || {};
 			if ( isInAudio( pid ))
 				return;
 			
-			peer.setIsInList( true );
+			peer.setInList( true );
 			if ( 'selfie' === peer.id )
 				self.updateSelfieState();
 			
@@ -982,7 +1080,7 @@ library.component = library.component || {};
 		self.uiVisible = !self.uiVisible;
 		self.toggleUI();
 		
-		self.peerGridOrder.forEach( updateUI );
+		self.peerIds.forEach( updateUI );
 		function updateUI( pId ) {
 			var peer = self.peers[ pId ];
 			if ( !peer ) {
@@ -1258,13 +1356,13 @@ library.component = library.component || {};
 		const self = this;
 		const isActive = !!self.modeFollowSpeaker;
 		const container = document.getElementById( self.peerGridId );
-		container.classList.toggle( 'mode-speaker', isActive );
+		//container.classList.toggle( 'mode-speaker', isActive );
 		
 		//
 		let currSpeaker = null;
 		let lastSpeaker = null;
 		console.log( 'updateModeFollowSpeaker', {
-			isActive : isActive,
+			isActive    : isActive,
 			currSpeaker : currSpeaker,
 			lastSpeaker : lastSpeaker,
 		});
@@ -1275,81 +1373,81 @@ library.component = library.component || {};
 			lastSpeaker = self.peers[ self.lastSpeaker ];
 		
 		if ( !isActive ) {
-			if ( lastSpeaker )
+			if ( lastSpeaker ) {
 				lastSpeaker.showIsSpeaking( false );
+				self.updatePeerMode( self.lastSpeaker );
+			}
 			
-			if ( currSpeaker )
+			if ( currSpeaker ) {
 				currSpeaker.showIsSpeaking( false );
+				self.updatePeerMode( self.currentSpeaker );
+			}
 			
 			return;
 		}
 		
 		if ( !currSpeaker && lastSpeaker ) {
 			lastSpeaker.showIsSpeaking( true );
+			self.updatePeerMode( self.lastSpeaker );
 			return;
 		}
 		
 		if ( currSpeaker ) {
-			if ( lastSpeaker )
+			if ( lastSpeaker ) {
 				lastSpeaker.showIsSpeaking( false );
+				self.updatePeerMode( self.lastSpeaker );
+			}
 			
 			currSpeaker.showIsSpeaking( true );
+			self.updatePeerMode( self.currentSpeaker );
 		}
 		
-		/*
-		if ( isActive )
-			enable();
-		else
-			disable();
 		
-		function enable() {
-			const peer = self.peers[ self.currentSpeaker ];
-			if ( !peer )
-				return;
+		function enable( pId ) {
 			
-			peer.reflow();
 		}
 		
-		function disable() {
-			self.reflowPeers();
+		function disable( pId ) {
+			
 		}
-		*/
+		
 	}
 	
 	ns.UI.prototype.setSpeaker = function( speaker ) {
 		const self = this;
 		console.log( 'setSpeaker', speaker );
-		self.lastSpeaker = self.currentSpeaker;
-		self.currentSpeaker = null;
+		let curr = speaker.current;
+		let last = speaker.last;
+		if ( curr === self.userId )
+			curr = 'selfie';
+		if ( last === self.userId )
+			last = 'selfie';
 		
-		if ( !speaker || !speaker.isSpeaking )
+		if ( curr != self.currentSpeaker )
 			unset();
-		else
-			set( speaker.peerId );
+		
+		self.currentSpeaker = curr;
+		self.lastSpeaker = last;
+		set();
 		
 		self.updateModeFollowSpeaker();
 		
 		function unset() {
-			if ( null == self.lastSpeaker )
+			if ( null == self.currentSpeaker )
 				return;
 			
-			const peer = self.peers[ self.lastSpeaker ];
+			const peer = self.peers[ self.currentSpeaker ];
 			if ( !peer )
 				return;
 			
 			peer.setIsSpeaking( false );
 		}
 		
-		function set( sId ) {
-			unset();
-			if ( sId === self.userId )
-				sId = 'selfie';
-			
-			const peer = self.peers[ sId ];
+		function set() {
+			const peer = self.peers[ self.currentSpeaker ];
 			if ( !peer )
 				return;
 			
-			self.currentSpeaker = sId;
 			peer.setIsSpeaking( true );
 		}
 	}
@@ -1515,12 +1613,28 @@ library.component = library.component || {};
 	
 	// Public
 	
-	ns.Peer.prototype.setIsInList = function( isInList ) {
+	ns.Peer.prototype.setInList = function() {
 		const self = this;
-		self.isInList = isInList;
-		self.el.classList.toggle( 'in-grid', !isInList );
-		self.el.classList.toggle( 'in-list', isInList );
-		self.clickCatch.classList.toggle( 'hidden', isInList );
+		self.clearPosition();
+		self.isInList = true;
+		self.positionClass = 'in-list';
+		self.updatePosition();
+	}
+	
+	ns.Peer.prototype.setInGrid = function() {
+		const self = this;
+		self.clearPosition();
+		self.isInGrid = true;
+		self.positionClass = 'in-grid';
+		self.updatePosition();
+	}
+	
+	ns.Peer.prototype.setInThumbs = function() {
+		const self = this;
+		self.clearPosition();
+		self.isInThumbs = true;
+		self.positionClass = 'in-thumbs';
+		self.updatePosition();
 	}
 	
 	ns.Peer.prototype.setVoiceListMode = function( isLarge ) {
@@ -1532,13 +1646,14 @@ library.component = library.component || {};
 	ns.Peer.prototype.setIsSpeaking = function( isSpeaker ) {
 		const self = this;
 		self.isSpeaker = isSpeaker;
+		self.el.classList.toggle( 'is-speaking', isSpeaker );
 	}
 	
 	ns.Peer.prototype.showIsSpeaking = function( isSpeaker ) {
 		const self = this;
 		self.showAsSpeaker = isSpeaker;
-		self.el.classList.toggle( 'show-speaker', isSpeaker );
-		self.reflow();
+		//self.el.classList.toggle( 'show-speaker', isSpeaker );
+		//self.reflow();
 	}
 	
 	ns.Peer.prototype.setAudioSink = function( deviceId ) {
@@ -1654,6 +1769,20 @@ library.component = library.component || {};
 		self.updateRTC( streamState );
 	}
 	
+	ns.Peer.prototype.clearPosition = function() {
+		const self = this;
+		self.isInList = false;
+		self.isInGrid = false;
+		self.isInThumbs = false;
+		self.el.classList.toggle( self.positionClass, false );
+	}
+	
+	ns.Peer.prototype.updatePosition = function() {
+		const self = this;
+		self.el.classList.toggle( self.positionClass, true );
+		self.clickCatch.classList.toggle( 'hidden', self.isInList );
+	}
+	
 	ns.Peer.prototype.reload = function() {
 		const self = this;
 		self.peer.restart();
@@ -1696,10 +1825,11 @@ library.component = library.component || {};
 		const avatarUrl =  window.encodeURI( self.peer.getAvatar());
 		const conf = {
 			peerId : self.id,
-			name : self.peer.getName() || '',
+			name   : self.peer.getName() || '',
 			avatar : avatarUrl || '',
 		};
 		self.el = hello.template.getElement( 'peer-tmpl', conf );
+		console.log( 'Peer.el', self.el );
 		self.connecting.appendChild( self.el );
 	}
 	
@@ -1729,7 +1859,7 @@ library.component = library.component || {};
 	}
 	
 	ns.Peer.prototype.bindUICommon = function() {
-		var self = this;
+		const self = this;
 		// stream
 		self.avatar = self.el.querySelector( '.stream-container .avatar' );
 		

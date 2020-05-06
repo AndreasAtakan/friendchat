@@ -3688,6 +3688,9 @@ The menu will remove itself if it loses focus or a menu item is clicked
 			self.isVisible = show;
 		
 		self.overlay.classList.toggle( 'hidden', !self.isVisible );
+		if ( self.isVisible )
+			self.updatePosition();
+		
 		self.emit( 'visible', self.isVisible );
 	}
 	
@@ -3714,16 +3717,23 @@ The menu will remove itself if it loses focus or a menu item is clicked
 		
 		let ap = null; // anchor point
 		let op = null; // offset point
-		if ( 'top-right' == pos.parent ) {
+		if ( 'top-right' === pos.parent ) {
 			ap = {
 				x : anchor.x2,
 				y : anchor.y1,
 			};
 		}
 		
-		if ( 'top-left' == pos.parent ) {
+		if ( 'top-left' === pos.parent ) {
 			ap = {
 				x : anchor.x1,
+				y : anchor.y1,
+			};
+		}
+		
+		if ( 'top-center' === pos.parent ) {
+			ap = {
+				x : anchor.x1 + ( anchor.w / 2 ),
 				y : anchor.y1,
 			};
 		}
@@ -3733,15 +3743,17 @@ The menu will remove itself if it loses focus or a menu item is clicked
 			y : ap.y + ( pos.offsetY || 0 ),
 		}
 		
-		/*
+		const boxWidth = self.overlay.clientWidth;
+		const boxHeight = self.overlay.clientHeight;
 		console.log( 'possies', {
 			pos : pos,
 			screen : screen,
 			anchor : anchor,
 			ap  : ap,
 			op  : op,
+			boxW : boxWidth,
+			boxH : boxHeight,
 		});
-		*/
 		
 		if ( 'bottom-right' === pos.self ) {
 			self.overlay.style.right = ( screen.width - op.x ) + 'px';
@@ -3750,6 +3762,11 @@ The menu will remove itself if it loses focus or a menu item is clicked
 				self.overlay.style.top = pos.height + 'px';
 			if ( null != pos.width )
 				self.overlay.style.left = pos.width + 'px';
+		}
+		
+		if ( 'bottom-center' === pos.self ) {
+			self.overlay.style.left = ( op.x - ( boxWidth / 2 )) + 'px';
+			self.overlay.style.bottom = ( screen.height - op.y ) + 'px';
 		}
 		
 		if ( 'bottom-left' === pos.self ) {
@@ -3802,6 +3819,7 @@ The menu will remove itself if it loses focus or a menu item is clicked
 			};
 			
 			const boxWidth = self.overlay.clientWidth;
+			const boxHeight = self.overlay.clientHeight;
 			/*
 			console.log( 'possies', {
 				pos : pos,
@@ -3844,12 +3862,16 @@ The menu will remove itself if it loses focus or a menu item is clicked
 	ns.Overlay.prototype.getElPosition = function( el ) {
 		const self = this;
 		const elRekt = el.getBoundingClientRect();
-		return {
+		const pos = {
 			x1 : elRekt.x,
 			x2 : elRekt.right,
 			y1 : elRekt.y,
 			y2 : elRekt.bottom,
+			w  : elRekt.right - elRekt.x,
+			h  : elRekt.bottom - elRekt.y,
 		};
+		console.log( 'getElPosition - pos', pos );
+		return pos;
 	}
 	
 	
