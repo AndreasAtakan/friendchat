@@ -485,7 +485,7 @@ var friend = window.friend || {}; // already instanced stuff
 		if ( self.fromView )
 			self.fromView.close();
 		
-		delete self.fromView();
+		delete self.fromView;
 		
 		if ( !self.app )
 			return;
