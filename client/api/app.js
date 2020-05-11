@@ -447,6 +447,108 @@ var friend = window.friend || {}; // already instanced stuff
 	}
 })( api );
 
+// NATIVE VIEW
+(function( ns, undefined ) {
+	ns.NativeView = function(
+		windowConf,
+		initData,
+		eventSink
+	) {
+		const self = this;
+		self.ready = false;
+		self.app = window.Application;
+		
+		EventEmitter.call( self, eventsink );
+		
+		self.initView( initData );
+	}
+	
+	ns.NativeView.prototype = Object.create( EventEmitter.prototype );
+	
+	// Public
+	
+	ns.NativeView.prototype.send = function( event ) {
+		const self = this;
+		if ( !self.ready ) {
+			self.sendQueue.push( event );
+			return;
+		}
+		
+		const msg = {
+			data : event,
+		};
+		self._send( msg );
+	}
+	
+	ns.NativeView.prototype.close = function() {
+		const self = this;
+		if ( self.fromView )
+			self.fromView.close();
+		
+		delete self.fromView();
+		
+		if ( !self.app )
+			return;
+		
+		self.app.removeView( self.id );
+		const close = {
+			data : {
+				type : 'close',
+			},
+		};
+		self._send( close );
+		
+		self.closeEventEmitter();
+		
+		delete self.ready;
+		delete self.sendQueue;
+		delete self.app;
+	}
+	
+	// Private
+	
+	ns.NativeView.prototype.initView = function( initData ) {
+		const self = this;
+		self.id = friendUP.tool.uid( 'native' );
+		self.app.addView( self );
+		self.fromView = new library.component.EventNode( self.id, self.app, unhandled );
+		self.fromView.on( 'ready', e => self.setReady( e ));
+		const init = {
+			data : {
+				type : 'initialize',
+				data : initData,
+			},
+		};
+		self._send( init );
+		
+		function unhandled( type, data ) {
+			console.log( 'NativeView unhandled', {
+				type : type,
+				data : data,
+			});
+			self.emit( type, data );
+		}
+	}
+	
+	ns.NativeView.prototype.setReady = function() {
+		const self = this;
+		self.ready = true;
+		if ( self.sendQueue.length ) {
+			self.sendQueue.forEach( e => self.send( e ));
+			self.sendQueue = [];
+		}
+		
+		self.emit( 'ready' );
+	}
+	
+	ns.NativeView.prototype._send = function( msg ) {
+		const self = this;
+		msg.type = 'native-view';
+		msg.viewId = self.id;
+		self.app.sendMessage( msg );
+	}
+	
+})( api );
 
 // Filedialogs
 (function( ns, undefined ) {
@@ -932,13 +1034,15 @@ var friend = window.friend || {}; // already instanced stuff
 	
 	ns.AppEvent.prototype.register = function( msg ) {
 		const self = this;
-		window.origin = msg.origin;
-		self.domain = msg.domain;
-		self.locale = msg.locale;
-		self.filePath = msg.filePath;
-		self.id = msg.applicationId;
-		self.userId = msg.userId;
-		self.authId = msg.authId;
+		console.log( 'App.register', msg );
+		window.origin  = msg.origin;
+		self.domain    = msg.domain;
+		self.locale    = msg.locale;
+		self.filePath  = msg.filePath;
+		self.id        = msg.applicationId;
+		self.userId    = msg.userId;
+		self.authId    = msg.authId;
+		self.friendApp = msg.friendApp;
 		
 		self.setLocale( null, setBack );
 		function setBack() {
@@ -949,9 +1053,9 @@ var friend = window.friend || {}; // already instanced stuff
 	
 	ns.AppEvent.prototype.registered = function( data ) {
 		const self = this;
-		var msg = {
-			type : 'notify',
-			data : 'registered',
+		const msg = {
+			type             : 'notify',
+			data             : 'registered',
 			registerCallback : data.registerCallback,
 		};
 		self.sendMessage( msg );
