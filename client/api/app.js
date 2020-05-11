@@ -458,7 +458,7 @@ var friend = window.friend || {}; // already instanced stuff
 		self.ready = false;
 		self.app = window.Application;
 		
-		EventEmitter.call( self, eventsink );
+		EventEmitter.call( self, eventSink );
 		
 		self.initView( initData );
 	}
