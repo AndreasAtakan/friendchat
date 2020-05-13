@@ -116,6 +116,9 @@ library.component = library.component || {};
 	ns.Init.prototype.initialize = function( data ) {
 		const self = this;
 		console.log( 'Live.initalize', data );
+		console.log( 'JSON', JSON.stringify( data ));
+		console.log( 'JSON', JSON.stringify( data.liveConf ));
+		console.log( 'JSON', JSON.stringify( data.liveConf.rtcConf ));
 		//hello.template.addFragments( data.fragments );
 		hello.template.addFragments( data.liveFragments );
 		//
@@ -124,7 +127,7 @@ library.component = library.component || {};
 		hello.parser.use( 'Emojii', data.emojii );
 		
 		// we dont need these any more
-		delete data.fragments;
+		delete data.liveFragments;
 		delete data.emojii;
 		
 		const liveConf = data.liveConf;
