@@ -802,11 +802,11 @@ library.component = library.component || {};
 	ns.UI.prototype.toggleThumbGrid = function() {
 		const self = this;
 		console.log( 'toggleThumbGrid', {
-			voiceOnly  : self.voiceOnly,
+			voiceOnly  : self.isVoiceOnly,
 			showThumbs : self.showThumbs,
 		});
 		
-		if ( self.voiceOnly ) {
+		if ( self.isVoiceOnly ) {
 			disable();
 			return;
 		}
@@ -859,6 +859,7 @@ library.component = library.component || {};
 		self.gridContainer.classList.toggle( 'hidden', isVoiceOnly );
 		self.listContainer.classList.toggle( 'expand', isVoiceOnly );
 		self.listContainer.classList.toggle( 'fortify', !isVoiceOnly );
+		self.toggleThumbGrid();
 		self.audioList.show( isVoiceOnly );
 		
 		self.updateVoiceListMode();
