@@ -1,0 +1,137 @@
+# Live
+
+## Protocol
+
+All events are detailed in the 'Events' section
+
+### setup
+
+First, a 'initialize' event is received. This event carries the data required for initial setup:
+```
+{
+	type : 'initialize',
+	data : <config object>
+}
+```
+
+The config has a list of peers, start listening for events for each one. Events for the peer will
+have its `type` set to the `peerId`. To send events to a remote peer, set the `type` of the event
+to the `peerId`.
+
+__Each pair__ of peers will be in a host-client relationship, and this is decided with a sequence 
+of synchronization events:
+1. Set a current timestamp and store it.
+2. In a 2s interval, send a `'sync'` event, with `data` set to the selected timestamp:
+```
+{
+	type : 'sync',
+	data : <timestamp>
+}
+```
+3. Receive `'sync'` events from remote peer. Compare timestamp received with the local timestamp.
+If they are the same, pick a short but random timeout and restart the process.
+If the local timestamp is the lower number, set self as host
+If the remote timestamp is the lower number, remote will function as host
+4. Stop sending `'sync'` events. Send a `'sync-accept'` event to confirm timestamps:
+```
+{
+	type : 'sync-accept',
+	data : [
+		<local timestamp>,
+		<remote timestamp>
+	],
+}
+```
+5. If the local side was __not__ chosen as host, send an `'open'` event to the host.
+6. Host receives `'open'` event and replies with a `'meta'` event. The meta event holds state
+and send/receive permissions for that side of the pair.
+```
+{
+	type : 'meta',
+	data : <meta object>
+}
+```
+7. Client receives `'meta'` event from host and sends its own `'meta'` event to the host.
+
+Both sides must now create their webRTC session and add their local audio/video streams to it.
+The sessions will begin its own setup. This requires sending multiple events to the 
+remote peer. Events from webRTC must must be of type `'webrtc-sink'`. It is then 
+addressed to the peer by wrapping it:
+```
+{
+	type : <peerId>,
+	data : {
+		type : 'webrtc-sink',
+		data : <webrtc event>
+	}
+}
+```
+
+The webRTC events sent/reveived at this point are:
+1. `'candidate'` for ICE candidates, with a `null`
+event to indicate end of candidates.
+2. `'sdp'` for exchangeing SDP.
+
+When SDP is accepted, the webRTC sessions produce audio/video tracks to be shown to the user.
+
+
+## Native
+
+If .friendApp property is defined in the initial config FriendChat receives on startup it will
+switch from starting live in an a workspace view to letting the native app take over. This means
+redirecting events to be sent and received over the friendApp interface.
+
+### FriendChat to Native app
+
+First the event is sent to workspace, packed in a 'native-app' event:
+```
+{
+	type   : 'native-app',
+	viewId : <uuid string>,
+	data   : <event object>
+}
+```
+
+Workspace apiwrapper handles this event and passes on viewId and data. Data is stringified.
+```
+friendApp.receiveLive( viewId, jsonString )
+```
+
+### Native app to FriendChat
+
+Frist the app sends the event to workspace as a json string, by calling:
+```
+Workspace.receiveLive( viewId, jsonString )
+```
+
+Worspace passes this on to FriendChat as a view event after parsing the json string:
+```
+{
+	type   : 'native-view',
+	viewId : <uuid string>,
+	data   : <event object>
+}
+```
+
+### Native view setup
+
+Setup sequence is slightly different from a Workspace view. The native app view
+immediatly receives a viewId and 'initialize' event on friendApp.receiveLive, with 
+the configuration object:
+Init:
+```
+{
+	type : 'initialize',
+	data : <live config object>
+}
+```
+This config object does not have the 'liveFragments' property.
+
+The native app is then expected to reply with a 'ready' event:
+```
+{
+	type : 'ready'
+}
+```
+
+After FriendChat has received the 'ready' event, standard protocol resumes.
