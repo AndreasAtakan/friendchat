@@ -801,6 +801,11 @@ library.component = library.component || {};
 	
 	ns.UI.prototype.toggleThumbGrid = function() {
 		const self = this;
+		console.log( 'toggleThumbGrid', {
+			voiceOnly  : self.voiceOnly,
+			showThumbs : self.showThumbs,
+		});
+		
 		if ( self.voiceOnly ) {
 			disable();
 			return;
@@ -817,11 +822,11 @@ library.component = library.component || {};
 		
 		function enable() {
 			self.thumbGrid.setOrder( self.peerIds );
-			self.thumbGrid.show( true );
+			self.thumbGrid.show();
 		}
 		
 		function disable() {
-			self.thumbGrid.show( false );
+			self.thumbGrid.hide();
 			self.thumbGrid.setOrder( null );
 		}
 	}
