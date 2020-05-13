@@ -700,7 +700,7 @@ library.view = library.view || {};
 			self.liveConf.localSettings = localSettings;
 			
 			console.log( 'checkNative', hello.app );
-			if ( hello.app.friendApp )
+			if ( hello.app.friendApp && ( 'iOS' === hello.app.friendApp.platform ))
 				initNative();
 			else
 				initLive();
