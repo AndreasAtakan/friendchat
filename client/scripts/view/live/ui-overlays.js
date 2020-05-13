@@ -59,6 +59,11 @@ library.component = library.component || {};
 	ns.ThumbGrid.prototype.setOrder = function( peerIds ) {
 		const self = this;
 		console.log( 'ThumbGrid.setOrder', peerIds );
+		if ( null == peerIds ) {
+			self.peerOrder = [];
+			return;
+		}
+		
 		self.peerOrder = peerIds;
 		self.updateOrder();
 	}
