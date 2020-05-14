@@ -135,3 +135,81 @@ The native app is then expected to reply with a 'ready' event:
 ```
 
 After FriendChat has received the 'ready' event, standard protocol resumes.
+
+## Events
+
+### Initial Config object
+With the `'initialize'` event, a config object is received. This holds all the data required
+for inital setup:
+```
+{
+	liveFragments : <lots of html for bulding the UI>
+	emojiis       : {},
+	liveConf      : {
+		guestAvatar   : <image/png as base64 string>,
+		identities    : <map of peerId:identityObject>, // name, avatar etc of participants
+		isGuest       : <bool>, // this is a guest connection
+		isPrivate     : <bool>, // is this a private room ( user to user chat )
+		isTempRoom    : <bool>, // is this room persisted to db
+		localSettings : <object> // client side settings, like prefered camera
+		logTail       : <array>, // array of latest messages in the room
+		peerList      : <array>, // list of peerIds of the current participants
+		roomName      : <string>,
+		rtcConf       : <object>, // conf for setting up signaling, webRTC and things
+		userId        : <string> // your own peerId
+	}
+}
+```
+
+#### identity
+An identity holds info about an entity. This is usually a user, but can also be a room or workgroup
+Here is an example user id with the most relevant fields:
+```
+{
+	clientId : <uuid string>,
+	name     : <string>,
+	avatar   : <image/png as base64 string>,
+	isAdmin  : <bool> // friendup system admin
+	isOnline : <bool> // user login status
+}
+```
+
+#### localSettings
+These settings are specific to this device and are stored in the client.
+```
+{
+	preferedDevices     : {
+		audioinput  : <object>,
+		audiooutput : <object>,
+		videoinput  : <object>
+	},
+	streamUserListState : <string>,
+	ui-user-stuff       : <bool>,
+	ui-visible          : <bool>,
+}
+```
+
+#### rtcConf
+This object holds various config and live state things
+```
+{
+	isRecording : <bool>, // is the stream recorded server side
+	mode        : <object>, // if the live session is in a special mode, this is set. Null otherwise
+	permissions : {
+		send      : { // this client will send these tracks
+			audio   : <bool>,
+			video   : <bool>
+		},
+		recevie   : { // this client wants to receive these tracks from peers
+			audio   : <bool>,
+			video   : <bool>
+		},
+	},
+	quality     : <object>, // meta info for video quality, specific WxH and framerate is defined in the client
+	speaking    : {
+		current : <peerId>, OR null
+		last    : <peerId> // always defined
+	},
+	topology    : <string 'peer' || 'star' || 'stream'> // usually 'peer',
+}
+```
