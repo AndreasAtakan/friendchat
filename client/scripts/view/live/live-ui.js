@@ -635,6 +635,12 @@ library.component = library.component || {};
 			if ( peer.isInList )
 				return;
 			
+			if ( peer.isInGrid )
+				removeFromGrid( peer.id );
+			
+			if ( peer.isInThumbs )
+				self.thumbGrid.remove( peer.id );
+			
 			peer.setInList();
 			self.audioList.add( peer.el );
 		}
@@ -669,6 +675,7 @@ library.component = library.component || {};
 	
 	ns.UI.prototype.removePeer = function( peerId ) {
 		const self = this;
+		console.log( 'removePeer', peerId );
 		const peer = self.peers[ peerId ];
 		if ( !peer ) {
 			console.log( 'live - no peer found for ', peerId );
@@ -682,7 +689,7 @@ library.component = library.component || {};
 			model.release( 'popped' );
 		}
 		
-		if ( self.thumbGrid )
+		if ( peer.isInThumbs )
 			self.thumbGrid.remove( peerId );
 		
 		if ( peer.isInList )
@@ -699,10 +706,18 @@ library.component = library.component || {};
 		if ( self.peerIds.length === 1 ) {
 			self.peers[ 'selfie' ].stopDurationTimer();
 			self.togglePopped( false );
-			delete self.selfiePopped;
+			self.selfiePopped = false;
 		}
 		
+		console.log( 'peer roemoved', {
+			pid   : peerId,
+			peers : self.peers,
+			ids   : self.peerIds,
+			order : self.peerGridOrder,
+		});
+		
 		self.updateVoiceListMode();
+		self.updateThumbsGrid();
 		self.updateGridClass();
 		self.updateWaiting();
 		self.updateMenu();

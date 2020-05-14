@@ -555,11 +555,12 @@ Atleast we should be pretty safe against any unwanted pregnancies.
 	
 	ns.RTC.prototype.handleMode = function( mode ) {
 		const self = this;
-		console.log( 'handleMode', mode );
-		if ( !mode === !self.mode ) {
-			if ( null == mode )
-				return;
-			
+		console.log( 'handleMode', {
+			curr : self.mode,
+			mode : mode,
+		});
+		
+		if ( mode && self.mode ) {
 			if ( mode.type === self.mode.type )
 				return;
 		}
@@ -667,10 +668,9 @@ Atleast we should be pretty safe against any unwanted pregnancies.
 		self.modePerms = null;
 	}
 	
-	ns.RTC.prototype.setModeFollowSpeaker = function( conf ) {
+	ns.RTC.prototype.setModeFollowSpeaker = function() {
 		const self = this;
-		console.log( 'setModeFollowSpeaker', conf );
-		self.mode = conf;
+		console.log( 'setModeFollowSpeaker', self.mode );
 		self.ui.setModeFollowSpeaker( true );
 		self.selfie.setModeFollowSpeaker( true );
 		self.modePerms = null;
@@ -678,6 +678,7 @@ Atleast we should be pretty safe against any unwanted pregnancies.
 	
 	ns.RTC.prototype.clearModeFollowSpeaker = function() {
 		const self = this;
+		console.log( 'clearModeFollowSpeaker' );
 		self.selfie.setModeFollowSpeaker( false );
 		self.ui.setModeFollowSpeaker( false );
 	}
@@ -1558,6 +1559,7 @@ Atleast we should be pretty safe against any unwanted pregnancies.
 		);
 		
 		if ( null != speaking ) {
+			self.updateFollowSpeaker( speaking );
 			if ( speaking.current == self.userId )
 				self.speaking.setIsSpeaker( true );
 		}
@@ -2035,7 +2037,9 @@ Atleast we should be pretty safe against any unwanted pregnancies.
 	
 	ns.Selfie.prototype.updateFollowSpeaker = function( speaking ) {
 		const self = this;
-		self.speaker = speaking;
+		if ( null != speaking )
+			self.speaker = speaking;
+		
 		self.setMediaQuality();
 	}
 	
