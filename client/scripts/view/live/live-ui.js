@@ -619,6 +619,7 @@ library.component = library.component || {};
 			return;
 		}
 		
+		/*
 		if ( self.showThumbs ) {
 			if ( checkIsSpeaker( peerId ))
 				setInGrid( peer );
@@ -627,6 +628,13 @@ library.component = library.component || {};
 		} else {
 			setInGrid( peer );
 		}
+		*/
+		if ( self.showThumbs ) {
+			setInThumbs( peer );
+			self.updateThumbsGrid();
+		}
+		else
+			setInGrid( peer );
 		
 		peer.reflow();
 		self.updateGridClass();
@@ -639,7 +647,7 @@ library.component = library.component || {};
 				removeFromGrid( peer.id );
 			
 			if ( peer.isInThumbs )
-				self.thumbGrid.remove( peer.id );
+				removeFromThumbs( peer.id );
 			
 			peer.setInList();
 			self.audioList.add( peer.el );
@@ -649,6 +657,12 @@ library.component = library.component || {};
 			if ( peer.isInGrid )
 				return;
 			
+			if ( peer.isInList )
+				removeFromList( peer.id );
+			
+			if ( peer.isInThumbs )
+				removeFromThumbs( peer.id );
+			
 			peer.setInGrid();
 			self.gridContainer.appendChild( peer.el );
 			self.peerGridOrder.push( peer.id );
@@ -657,6 +671,12 @@ library.component = library.component || {};
 		function setInThumbs( peer ) {
 			if ( peer.isInThumbs )
 				return;
+			
+			if ( peer.isInGrid )
+				removeFromGrid( peer.id );
+			
+			if ( peer.isInList )
+				removeFromList( peer.id );
 			
 			peer.setInThumbs();
 			self.thumbGrid.add( peer.id, peer.el );
@@ -670,6 +690,22 @@ library.component = library.component || {};
 				return true;
 			
 			return false;
+		}
+		
+		function removeFromThumbs( pId ) {
+			self.thumbGrid.remove( pId );
+		}
+		
+		function removeFromGrid( pId ) {
+			const pdx = self.peerGridOrder.indexOf( pId );
+			if ( -1 == pdx )
+				return;
+			
+			self.peerGridOrder.splice( pdx, 1 );
+		}
+		
+		function removeFromList( pId ) {
+			self.audioList.remove( pId );
 		}
 	}
 	
@@ -1389,6 +1425,8 @@ library.component = library.component || {};
 		//
 		let currSpeaker = null;
 		let lastSpeaker = null;
+		let in = null;
+		let out = null;
 		console.log( 'updateThumbsGrid', {
 			isActive    : isActive,
 			currSpeaker : currSpeaker,
