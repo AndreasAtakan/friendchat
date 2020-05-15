@@ -92,7 +92,7 @@ event to indicate end of candidates.
 When SDP is accepted, the webRTC sessions produce audio/video tracks to be shown to the user.
 
 
-## normal operation
+### normal operation
 
 #### join
 If someone joins the session, a `'join'` event will be received from presence.
