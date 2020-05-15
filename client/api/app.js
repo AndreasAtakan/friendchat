@@ -457,6 +457,7 @@ var friend = window.friend || {}; // already instanced stuff
 		const self = this;
 		self.ready = false;
 		self.app = window.Application;
+		self.sendQueue = [];
 		
 		EventEmitter.call( self, eventSink );
 		
