@@ -68,26 +68,25 @@ library.component = library.component || {};
 		self.updateOrder();
 	}
 	
-	ns.ThumbGrid.prototype.add = function( peerId, peerEl ) {
+	ns.ThumbGrid.prototype.add = function( peer ) {
 		const self = this;
-		console.log( 'ThumbGrid.add', [ peerId, !!peerEl ]);
-		const pIndex = self.peerOrder.indexOf( peerId );
-		if ( -1 == pIndex ) {
-			self.peerOrder.push( peerId );
-		}
+		const pId = peer.id;
+		console.log( 'ThumbGrid.add', [ pId, peer ]);
+		const exists = self.peers[ pId ];
+		if ( exists )
+			return;
 		
-		if ( !self.peerMap[ peerId ])
-			self.setWrap( peerId );
-		
-		self.peers[ peerId ] = peerEl;
-		self.set( peerId );
+		self.set( pId, peer );
 	}
 	
-	ns.ThumbGrid.prototype.swap = function( peerIn, peerOut ) {
+	ns.ThumbGrid.prototype.swapIn = function( peerId ) {
 		const self = this;
-		console.log( 'ThumbGrid.swap', [ peerIn, peerOut ]);
-		self.set( peerIn );
-		self.unset( peerOut );
+		console.log( 'ThumbGrid.swapIn', peerId );
+	}
+	
+	ns.ThumbGrid.prototype.swapOut = function( peerId ) {
+		const self = this;
+		console.log( 'ThumbGrid.swapOut', peerId );
 	}
 	
 	ns.ThumbGrid.prototype.remove = function( peerId ) {
@@ -124,23 +123,32 @@ library.component = library.component || {};
 		self.peerOrder.forEach( pId => {
 			let wrapId = self.peerMap[ pId ];
 			if ( null == wrapId )
-				wrapId = self.setWrap( pId );
+				return;
 			
 			const wrap = document.getElementById( wrapId );
 			self.grid.appendChild( wrap );
 		});
 	}
 	
-	ns.ThumbGrid.prototype.setWrap = function( peerId ) {
+	ns.ThumbGrid.prototype.setWrap = function( peerId, peer ) {
 		const self = this;
 		const wId = friendUP.tool.uid( 'warp' );
+		const avatar = peer.getAvatarStr();
 		self.peerMap[ peerId ] = wId;
 		const conf = {
-			id : wId,
+			id     : wId,
 		};
+		
 		const el = hello.template.getElement( 'thumb-grid-wrap-tmpl', conf );
+		if ( avatar ) {
+			let avatarUrl = window.encodeURI( avatar );
+			let avatarStyle = 'url("' + avatarUrl + '")';
+			el.style.backgroundImage = avatarStyle;
+		}
+		
 		self.grid.appendChild( el );
 		console.log( 'ThumbGrid.setWrap', {
+			ava    : avatar,
 			peerId : peerId,
 			wrapId : wId,
 			el     : el,
@@ -151,18 +159,15 @@ library.component = library.component || {};
 		return wId;
 	}
 	
-	ns.ThumbGrid.prototype.set = function( pId ) {
+	ns.ThumbGrid.prototype.set = function( pId, peer ) {
 		const self = this;
-		const pEl = self.peers[ pId ];
-		if ( !pEl ) {
-			console.log( 'ThumbGrid.set - no peer el for', {
-				pId   : pId,
-				peers : self.peers,
-			});
-			return;
-		}
+		self.peerOrder.push( pId );
+		if ( !self.peerMap[ peerId ])
+			self.setWrap( peerId, peer );
 		
+		const pEl = peer.el;
 		console.log( 'pEl', pEl );
+		self.peers[ peerId ] = pEl;
 		const wId = self.peerMap[ pId ];
 		const wrap = document.getElementById( wId );
 		wrap.appendChild( pEl );

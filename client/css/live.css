@@ -22,8 +22,9 @@
 }
 
 #peer-thumb-grid {
-	padding : 0.1em;
 	background-color : rgb( 0, 0, 0, 0.6 );
+	padding          : 0.1em;
+	border-radius    : 0.2em;
 }
 
 #play-container {
@@ -85,11 +86,14 @@ i.svg.camera-off {
 .thumb-wrap {
 	height : 3em;
 	width  : 3em;
+	margin : 0.1em;
 }
 
+/*
 .thumb-wrap:not(:first-child) {
 	margin-left : 0.1em;
 }
+*/
 
 .peer .stream-container {
 	position : relative;
@@ -120,14 +124,16 @@ i.svg.camera-off {
 	left   : 1px;
 }
 
+/*
 .peer .video {
 	-webkit-transform : translateZ( 0 );
 }
+*/
 
 .peer .video {
-	position : absolute;
-	top : 50%;
-	left: 50%;
+	position  : absolute;
+	top       : 50%;
+	left      : 50%;
 	transform : translate( -50%, -50% );
 }
 
