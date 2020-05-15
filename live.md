@@ -4,6 +4,23 @@
 
 All events are detailed in the 'Events' section
 
+### ping/pong
+Presence server will send `'ping'` events to check if the clients live session is alive.
+```
+{
+	type : 'ping',
+	data : <string/timestamp>
+}
+```
+
+The timestamp must be returned in a `'pong'` event:
+```
+{
+	type : 'pong',
+	data : <string/timestamp>
+}
+```
+
 ### setup
 
 First, a 'initialize' event is received. This event carries the data required for initial setup:
@@ -74,6 +91,29 @@ event to indicate end of candidates.
 
 When SDP is accepted, the webRTC sessions produce audio/video tracks to be shown to the user.
 
+
+## normal operation
+
+#### join
+If someone joins the session, a `'join'` event will be received from presence.
+```
+{
+	type : 'join',
+	data : {
+		peerId   : <peerId>,
+		identity : <id object>
+	}
+}
+```
+
+#### leave
+If someone leaves the session, a `'leave'` event be recevieved from presence.
+```
+{
+	type : 'leave',
+	data : peerId,
+}
+```
 
 ## Native
 
