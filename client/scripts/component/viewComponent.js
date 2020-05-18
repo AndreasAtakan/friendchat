@@ -3811,16 +3811,24 @@ The menu will remove itself if it loses focus or a menu item is clicked
 				};
 			}
 			
+			if ( 'right-center' == pos.parent ) {
+				const c = ( anchor.y1 + anchor.y2 ) / 2;
+				console.log( 'possies - c', c );
+				ap = {
+					x : anchor.x2,
+					y : c,
+				};
+			}
+			
 			// THE OTHER THING
 			
 			op = {
-				x : ap.x + pos.offsetX || 0,
-				y : ap.y + pos.offsetY || 0,
+				x : ap.x + ( pos.offsetX || 0 ),
+				y : ap.y + ( pos.offsetY || 0 ),
 			};
 			
 			const boxWidth = self.overlay.clientWidth;
 			const boxHeight = self.overlay.clientHeight;
-			/*
 			console.log( 'possies', {
 				pos : pos,
 				screen : screen,
@@ -3829,10 +3837,8 @@ The menu will remove itself if it loses focus or a menu item is clicked
 				op  : op,
 				boxW : boxWidth,
 			});
-			*/
 			
 			if ( 'left-center' == pos.self ) {
-				const boxHeight = self.overlay.clientHeight;
 				self.overlay.style.left = op.x + 'px';
 				self.overlay.style.top = ( screen.height - op.y - ( boxHeight / 2 )) + 'px';
 				self.overlay.style.right = op.x + 'px';
@@ -3846,6 +3852,14 @@ The menu will remove itself if it loses focus or a menu item is clicked
 				self.overlay.style.bottom = op.y + 'px';
 				self.overlay.style.maxWidth = pos.maxX;
 				
+			}
+			
+			if ( 'right-center' == pos.self ) {
+				console.log( 'rightcenter', op );
+				self.overlay.style.right =  ( screen.width - op.x ) + 'px';
+				self.overlay.style.top = ( screen.height - op.y - ( boxHeight / 2 )) + 'px';
+				//self.overlay.style.left = op.x + 'px';
+				self.overlay.style.maxWidth = pos.maxX;
 			}
 		}
 	}

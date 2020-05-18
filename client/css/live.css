@@ -22,9 +22,16 @@
 }
 
 #peer-thumb-grid {
-	background-color : rgb( 0, 0, 0, 0.6 );
 	padding          : 0.1em;
 	border-radius    : 0.2em;
+}
+
+#peer-thumb-grid.loose .thumb-wrap:not(:first-child) {
+	margin-top : 0.5em;
+}
+
+#peer-thumb-grid.tight .thumb-wrap:not(:first-child) {
+	margin-top : -1em;
 }
 
 #play-container {
@@ -82,12 +89,46 @@ i.svg.camera-off {
 	border: 2px solid transparent;
 }
 
-.peer.in-thumbs,
+.peer.in-thumbs {
+	height: 100%;
+	width: 100%;
+}
+
 .thumb-wrap {
+	border-radius: 100%;
+	background-color : rgb( 0, 0, 0, 1 );
+	padding: 0.15em;
+	position: relative;
+}
+
+.thumb-wrap.active {
+	transform: translateX( -1em );
+}
+
+.thumb-wrap .stream,
+.thumb-wrap .avatar {
 	height : 3em;
 	width  : 3em;
-	margin : 0.1em;
 }
+
+.thumb-wrap .avatar {
+	top                 : 0.15em;
+	left                : 0.15em;
+	opacity             : 0;
+	position            : absolute;
+	border-radius       : 100%;
+	background-size     : contain;
+	background-position : center;
+}
+
+.thumb-wrap.active .avatar {
+	opacity: 0.5;
+}
+
+.thumb-wrap .stream {
+	
+}
+
 
 /*
 .thumb-wrap:not(:first-child) {
@@ -135,6 +176,10 @@ i.svg.camera-off {
 	top       : 50%;
 	left      : 50%;
 	transform : translate( -50%, -50% );
+}
+
+.peer.in-thumbs .video {
+	border-radius: 100%;
 }
 
 .peer .visualizer {

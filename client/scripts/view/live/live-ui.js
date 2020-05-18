@@ -214,7 +214,7 @@ library.component = library.component || {};
 		
 		self.bindEvents();
 		//const peersEl = document.getElementById( self.ui );
-		self.thumbGrid = new library.view.ThumbGrid( self.ui, self.peers );
+		self.thumbGrid = new library.view.ThumbGrid( self.gridContainer, self.peers );
 		
 		/*
 		let queueConf = {
@@ -678,7 +678,7 @@ library.component = library.component || {};
 				removeFromList( peer.id );
 			
 			peer.setInThumbs();
-			self.thumbGrid.add( peer.id, peer.el );
+			self.thumbGrid.add( peer );
 		}
 		
 		/*
@@ -1455,21 +1455,22 @@ library.component = library.component || {};
 		
 		if ( !currSpeaker && lastSpeaker ) {
 			lastSpeaker.showIsSpeaking( true );
-			showInMain( self.lastSpeaker );
+			showInMain( lastSpeaker );
 			return;
 		}
 		
 		if ( currSpeaker ) {
 			if ( lastSpeaker ) {
 				lastSpeaker.showIsSpeaking( false );
-				showInThumbs( self.lastSpeaker );
+				showInThumbs( lastSpeaker );
 			}
 			
 			currSpeaker.showIsSpeaking( true );
-			showInMain( self.currentSpeaker );
+			showInMain( currSpeaker );
 		}
 		
 		function showInMain( peer ) {
+			console.log( 'showInMain', peer );
 			if ( peer.isInGrid )
 				return;
 			
@@ -1485,12 +1486,12 @@ library.component = library.component || {};
 				return;
 			
 			const pId = peer.id;
-			peer.setInThumbs();
-			oIdx = self.peerGridOrder.indexOf( pId );
+			const oIdx = self.peerGridOrder.indexOf( pId );
 			if ( -1 != oIdx )
 				self.peerGridOrder.splice( oIdx, 1 );
 			
 			self.thumbGrid.swapIn( pId );
+			peer.setInThumbs();
 		}
 		
 	}
@@ -1746,6 +1747,7 @@ library.component = library.component || {};
 	
 	ns.Peer.prototype.getAvatarStr = function() {
 		const self = this;
+		console.log( 'getAvatarStr', self.identity );
 		if ( !self.identity )
 			return null;
 		
@@ -1871,6 +1873,7 @@ library.component = library.component || {};
 		const self = this;
 		self.el.classList.toggle( self.positionClass, true );
 		self.clickCatch.classList.toggle( 'hidden', self.isInList );
+		self.reflow();
 	}
 	
 	ns.Peer.prototype.reload = function() {
