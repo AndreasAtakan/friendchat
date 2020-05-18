@@ -553,9 +553,10 @@ library.component = library.component || {};
 		// add to ui
 		self.peers[ pid ] = viewPeer;
 		self.peerIds.push( pid );
+		/*
 		if ( self.showThumbs )
 			self.thumbGrid.add( pid, viewPeer.el );
-		
+		*/
 		self.updatePeerMode( pid );
 		self.updateMenu();
 		self.updateVoiceListMode();
