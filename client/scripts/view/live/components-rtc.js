@@ -2958,7 +2958,7 @@ library.rtc = library.rtc || {};
 		// lowest quality first or things will break
 		self.videoQualityKeys = [ 'width', 'height', 'frameRate' ];
 		self.videoQualityMap = {
-			'pixel'   : [ 24, 24, 4 ],
+			'pixel'   : [ 48, 48, 4 ],
 			'low'     : [ 256, 168, 4 ],
 			'medium'  : [ 480, 320, 12 ],
 			'normal'  : [ 640, 480, 24 ],
