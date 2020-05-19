@@ -2072,8 +2072,12 @@ Atleast we should be pretty safe against any unwanted pregnancies.
 	
 	ns.Selfie.prototype.setMediaQuality = function() {
 		const self = this;
+		if ( !self.media )
+			return;
+		
 		let quality = self.mediaQuality;
 		console.log( 'setMediaQuality', quality );
+		
 		quality = self.getFollowSpeakerQuality( quality );
 		
 		//
