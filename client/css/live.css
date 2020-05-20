@@ -100,15 +100,16 @@ i.svg.camera-off {
 
 .thumb-wrap {
 	position         : relative;
-	transition       : all 0.2s;
 	height           : 4em;
 	width            : 4em;
 	border-radius    : 0.3em;
 }
 
 .round-bois .thumb-wrap {
+	transition       : all 0.2s;
 	border-radius    : 100%;
 	border           : 2px solid rgb( 60, 60, 60, 0.5 );
+	background-color : rgb( 30, 30, 30, 1 );
 }
 
 .thumb-wrap.active {
@@ -133,20 +134,21 @@ i.svg.camera-off {
 	border-radius : 100%;
 }
 
-.thumb-wrap .stream {
-	position : absolute;
-	top      : 0;
-	right    : 0;
-	bottom   : 0;
-	left     : 0;
-}
-
 .thumb-wrap .avatar {
 	position : absolute;
 	top      : 20%;
 	right    : 20%;
 	bottom   : 20%;
 	left     : 20%;
+}
+
+.round-bois .thumb-wrap .avatar,
+.thumb-wrap .stream {
+	position : absolute;
+	top      : 0;
+	right    : 0;
+	bottom   : 0;
+	left     : 0;
 }
 
 .thumb-wrap .avatar {
