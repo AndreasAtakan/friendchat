@@ -866,10 +866,10 @@ message,
 
 
 <!-- thumb grid
-	
+	roundBois
 -->
 <script id="thumb-grid-tmpl" type="text/html">
-<div id="peer-thumb-grid" class="">
+<div id="peer-thumb-grid" class="<%= roundBois %>">
 </div>
 </script>
 
@@ -878,6 +878,8 @@ id,
 -->
 <script id="thumb-grid-wrap-tmpl" type="text/html">
 <div id="<%= id %>" class="thumb-wrap">
+	<div class="arrow">
+	</div>
 	<div class="avatar">
 	</div>
 	<div class="stream">
