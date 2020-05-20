@@ -193,6 +193,14 @@ library.component = library.component || {};
 		self.setThumbsMode( self.modeFollowSpeaker );
 	}
 	
+	ns.UI.prototype.setUseRoundBois = function( useRoundBois ) {
+		const self = this;
+		console.log( 'setUseRoundBois', useRoundBois );
+		self.saveLocalSetting( 'use_round_bois', !!useRoundBois );
+		if ( self.thumbGrid )
+			self.thumbGrid.useRoundBois( useRoundBois );
+	}
+	
 	// Private
 	
 	ns.UI.prototype.init = function( conf ) {
@@ -214,7 +222,7 @@ library.component = library.component || {};
 		
 		self.bindEvents();
 		//const peersEl = document.getElementById( self.ui );
-		self.thumbGrid = new library.view.ThumbGrid( self.gridContainer, self.peers );
+		self.thumbGrid = new library.view.ThumbGrid( self.gridContainer, self.localSettings );
 		
 		/*
 		let queueConf = {
@@ -259,6 +267,19 @@ library.component = library.component || {};
 		
 		self.uiVisible = true;
 		self.toggleUI();
+	}
+	
+	ns.UI.prototype.saveLocalSetting = function( setting, value ) {
+		const self = this;
+		console.log( 'UI.saveLocalSetting', [ setting, value ]);
+		const sett = {
+			type : 'local-setting',
+			data : {
+				setting : setting,
+				value   : value,
+			},
+		};
+		self.conn.send( sett );
 	}
 	
 	ns.UI.prototype.addUIPane = function( id, conf ) {

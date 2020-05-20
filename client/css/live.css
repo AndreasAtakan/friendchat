@@ -26,11 +26,15 @@
 	border-radius    : 0.2em;
 }
 
-#peer-thumb-grid.loose .thumb-wrap:not(:first-child) {
+#peer-thumb-grid .thumb-wrap:not(:first-child) {
+	margin-top : 0.2em;
+}
+
+#peer-thumb-grid.round-bois.loose .thumb-wrap:not(:first-child) {
 	margin-top : 0.5em;
 }
 
-#peer-thumb-grid.tight .thumb-wrap:not(:first-child) {
+#peer-thumb-grid.round-bois.tight .thumb-wrap:not(:first-child) {
 	margin-top : -1em;
 }
 
@@ -95,41 +99,82 @@ i.svg.camera-off {
 }
 
 .thumb-wrap {
-	border-radius    : 100%;
-	overflow         : hidden;
 	position         : relative;
 	transition       : all 0.2s;
 	height           : 4em;
 	width            : 4em;
+	border-radius    : 0.3em;
+}
+
+.round-bois .thumb-wrap {
+	border-radius    : 100%;
 	border           : 2px solid rgb( 60, 60, 60, 0.5 );
-	background-color : rgb( 60, 60, 60, 0.5 );
-	overflow         : hidden;
 }
 
 .thumb-wrap.active {
-	transform: translateX( -1em );
+	background-color : rgb( 30, 30, 30, 1 );
+}
+
+.round-bois .thumb-wrap.active {
+	height    : 3em;
+	width     : 3em;
+	transform : translateX( -1em );
 	transition: all 0.2s;
 }
 
 .thumb-wrap .stream,
 .thumb-wrap .avatar {
+	overflow      : hidden;
+	border-radius : 0.3em;
+}
+
+.round-bois .thumb-wrap .stream,
+.round-bois .thumb-wrap .avatar {
+	border-radius : 100%;
+}
+
+.thumb-wrap .stream {
 	position : absolute;
-	top      : -1;
-	right    : -1;
-	bottom   : -1;
-	left     : -1;
+	top      : 0;
+	right    : 0;
+	bottom   : 0;
+	left     : 0;
+}
+
+.thumb-wrap .avatar {
+	position : absolute;
+	top      : 20%;
+	right    : 20%;
+	bottom   : 20%;
+	left     : 20%;
 }
 
 .thumb-wrap .avatar {
 	opacity             : 0;
-	border-radius       : 100%;
 	background-repeat   : no-repeat;
-	background-size     : cover;
 	background-position : center center;
+	background-size     : cover;
+	border-radius       : 100%;
 }
 
 .thumb-wrap.active .avatar {
-	opacity: 0.8;
+	opacity : 1;
+}
+
+.thumb-wrap .arrow {
+	display          : none;
+	position         : absolute;
+	background-color : rgb( 30, 30, 30, 1 );
+	width            : 1em;
+	height           : 1em;
+	transform        : rotate( 45deg );
+	top              : 50%;
+	left             : -0.5em;
+	margin-top       : -0.5em;
+}
+
+.thumb-wrap.active .arrow {
+	display : inherit;
 }
 
 /*
@@ -182,7 +227,7 @@ i.svg.camera-off {
 	transform : translate( -50%, -50% );
 }
 
-.peer.in-thumbs .video {
+.round-bois .peer.in-thumbs .video {
 	border-radius: 100%;
 }
 

@@ -30,15 +30,20 @@ library.component = library.component || {};
 */
 
 (function( ns, undefined ) {
-	ns.ThumbGrid = function( anchor ) {
+	ns.ThumbGrid = function( anchor, conf ) {
 		const self = this;
-		console.log( 'ThumbGrid', anchor );
+		console.log( 'ThumbGrid', {
+			a : anchor,
+			c : conf,
+		});
+		
 		self.id = 'peer-thumb-grid';
 		self.peerOrder = [];
 		self.peers = {};
 		self.wrapMap = {};
+		self.showRoundBois = conf[ 'use_round_bois' ] || false;
 		
-		const conf = {
+		const overlayConf = {
 			css  : null,
 			show : false,
 			position : {
@@ -49,7 +54,8 @@ library.component = library.component || {};
 				},
 			},
 		};
-		library.component.Overlay.call( self, anchor, conf );
+		
+		library.component.Overlay.call( self, anchor, overlayConf );
 	}
 	
 	ns.ThumbGrid.prototype = 
@@ -114,6 +120,16 @@ library.component = library.component || {};
 		return self.unset( peerId );
 	}
 	
+	ns.ThumbGrid.prototype.useRoundBois = function( use ) {
+		const self = this;
+		if ( use === self.useRoundBois )
+			return;
+		
+		console.log( 'ThumbGrid.useRoundBois', use );
+		self.showRoundBois = use;
+		self.grid.classList.toggle( 'round-bois', self.showRoundBois );
+	}
+	
 	ns.ThumbGrid.prototype.close = function() {
 		const self = this;
 		self.closeOverlay();
@@ -124,7 +140,14 @@ library.component = library.component || {};
 	
 	ns.ThumbGrid.prototype.build = function() {
 		const self = this;
-		const el = hello.template.getElement( 'thumb-grid-tmpl', {});
+		let roundBoiKlass = '';
+		if ( self.showRoundBois )
+			roundBoiKlass = 'round-bois';
+		
+		const conf = {
+			roundBois : roundBoiKlass,
+		};
+		const el = hello.template.getElement( 'thumb-grid-tmpl', conf );
 		return el;
 	}
 	
