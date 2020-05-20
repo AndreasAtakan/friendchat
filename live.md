@@ -250,6 +250,29 @@ This object holds various config and live state things
 		current : <peerId>, OR null
 		last    : <peerId> // always defined
 	},
-	topology    : <string 'peer' || 'star' || 'stream'> // usually 'peer',
+	topology    : <string 'peer' | 'star' | 'stream'> // usually 'peer',
+}
+```
+
+### meta
+This event holds state and send/receive expectations for that side of the pair.
+```
+{
+	browser : <string>, // 'chrome', 'firefox', etc
+	sending : { // this client will have these tracks available to send
+		audio : <bool>,
+		video : <bool>
+	},
+	receive : { // this client wants to receive these tracks
+		audio : <bool>,
+		video : <bool>
+	},
+	state : {
+		isMuted         : <bool>, // this clients audio track is muted
+		isBlinded       : <bool>, // this clients video track is blank
+		screenMode      : <string, 'contain' | 'cover' >,
+		screenShare     : <bool>, // this client is sharing the screen
+		useDefaultCodec : <bool>, // this client must use the default webRTC codec, VP8
+	}
 }
 ```
