@@ -21,9 +21,15 @@
 	
 }
 
+#peer-thumb-container {
+	max-height   : 100%;
+	overflow : scroll;
+}
+
 #peer-thumb-grid {
-	padding          : 0.1em;
-	border-radius    : 0.2em;
+	padding       : 0.1em;
+	border-radius : 0.2em;
+	padding-left  : 1em;
 }
 
 #peer-thumb-grid .thumb-wrap:not(:first-child) {
@@ -109,7 +115,7 @@ i.svg.camera-off {
 	transition       : all 0.2s;
 	border-radius    : 100%;
 	border           : 2px solid rgb( 60, 60, 60, 0.5 );
-	background-color : rgb( 30, 30, 30, 1 );
+	background-color : rgb( 60, 60, 60, 0.5 );
 }
 
 .thumb-wrap.active {

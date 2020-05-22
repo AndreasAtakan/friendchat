@@ -51,6 +51,8 @@ library.component = library.component || {};
 					parent  : 'right-center',
 					self    : 'right-center',
 					offsetX : -10,
+					top     : 40,
+					bottom  : 60,
 				},
 			},
 		};

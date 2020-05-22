@@ -3841,7 +3841,7 @@ The menu will remove itself if it loses focus or a menu item is clicked
 			if ( 'left-center' == pos.self ) {
 				self.overlay.style.left = op.x + 'px';
 				self.overlay.style.top = ( screen.height - op.y - ( boxHeight / 2 )) + 'px';
-				self.overlay.style.right = op.x + 'px';
+				
 				self.overlay.style.maxWidth = pos.maxX;
 			}
 			
@@ -3861,6 +3861,15 @@ The menu will remove itself if it loses focus or a menu item is clicked
 				//self.overlay.style.left = op.x + 'px';
 				self.overlay.style.maxWidth = pos.maxX;
 			}
+			
+			if ( pos.top )
+				self.overlay.style.top = pos.top + 'px';
+			if ( pos.right )
+				self.overlay.style.right = pos.right + 'px';
+			if ( pos.bottom )
+				self.overlay.style.bottom = pos.bottom + 'px';
+			if ( pos.left )
+				self.overlay.style.left = pos.left + 'px';
 		}
 	}
 	
