@@ -23,7 +23,7 @@
 
 #peer-thumb-container {
 	max-height   : 100%;
-	overflow : scroll;
+	overflow-y   : auto;
 }
 
 #peer-thumb-grid {
