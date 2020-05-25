@@ -793,7 +793,7 @@ library.rtc = library.rtc || {};
 		self.channels = {};
 		
 		// rtc specific logging ( automatic host / client prefix )
-		self.spam = false;
+		self.spam = true;
 		
 		self.init();
 	}
@@ -1800,7 +1800,7 @@ library.rtc = library.rtc || {};
 		if ( 'have-local-offer' === self.conn.signalingState )
 			self.inOfferProcess = true;
 		
-		var desc = {
+		const desc = {
 			type : 'sdp',
 			data : self.conn.localDescription,
 		};
@@ -1933,7 +1933,7 @@ library.rtc = library.rtc || {};
 		self.conn.createAnswer()
 			.then( success )
 			.catch( err );
-			
+		
 		function success( reply ) {
 			self.log( 'answer created', reply );
 			let sdp = null;
@@ -2018,7 +2018,7 @@ library.rtc = library.rtc || {};
 		
 		function deny() {
 			self.log( 'deny client negotiation' );
-			send( 'deny');
+			send( 'deny' );
 		}
 		
 		function send( answer ) {

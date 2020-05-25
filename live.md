@@ -70,27 +70,101 @@ and send/receive permissions for that side of the pair.
 ```
 7. Client receives `'meta'` event from host and sends its own `'meta'` event to the host.
 
+### webRTC setup
+
 Both sides must now create their webRTC session and add their local audio/video streams to it.
 The sessions will begin its own setup. This requires sending multiple events to the 
-remote peer. Events from webRTC must must be of type `'webrtc-sink'`. It is then 
-addressed to the peer by wrapping it:
+remote peer. Events from webRTC must must be of type `'webrtc-stream'` if its a normal
+peer-to-peer connection. It is then addressed to the peer by wrapping it:
 ```
 {
 	type : <peerId>,
 	data : {
-		type : 'webrtc-sink',
+		type : 'webrtc-stream',
 		data : <webrtc event>
 	}
 }
 ```
 
 The webRTC events sent/reveived at this point are:
-1. `'candidate'` for ICE candidates, with a `null`
+1. `'negotiate'` events for deciding who sends SDP.
+2. `'candidate'` for ICE candidates, with a `null`
 event to indicate end of candidates.
-2. `'sdp'` for exchangeing SDP.
+3. `'sdp'` for exchangeing SDP.
 
-When SDP is accepted, the webRTC sessions produce audio/video tracks to be shown to the user.
+#### negotiate
 
+If both sides create a SDP offer, they can end in a deadlock where they expect a SDP answer
+they will not get. But the client must be able to renegotiate its SDP if something changes.
+To solve this the client side can `'request'` negotiation, and the host side will either
+`'accept'` or `'deny'` this.
+```
+{
+	type : 'negotiate',
+	data : 'request' | 'accept' | 'deny'
+}
+
+```
+
+For client side:
+Before creating a SDP offer, first send a `'request'` to the host. The host will answer with
+`'accept'` if its okay. If the answer is `'deny`, the client must wait a few seconds and try again
+if it still needs to change its SDP. This need might have gone away if the host renegotiated SDP
+from its side during the timeout.
+1. negotiation is needed
+2. send `'reqeust'`
+3.a response is `'deny'`. Waiting a few seconds before going back to step 2
+3.b response is `'accept'`. Create offer SDP and send it
+
+For host side:
+If host receives a `'request'` it must check its own state to see if it should answer with
+`'accept'` or `'deny'`. Host should not send `'accept'` if its webRTC signaling state is
+not `'stable'` or is in a SDP offer/answer process. If the host sends `'accept`, it must
+for a short while afterwards __not__ create its own SDP offer.
+
+#### ICE candidates
+
+ICE candidates are the connection interfaces that peer has available, like a internet public IP,
+LAN IP or TURN. STUN is used for the peer to discover its own public IP(s). Candidates should be
+sent to the other peer when available. After the last candidate has been sent, a `null` candidate
+should be sent.
+```
+{
+	type : 'canidate',
+	data : <canidate string>,
+}
+```
+
+#### SDP
+
+The SDP represents all the information the peers need to agree on to set up a direct connection 
+to the other peer. After audio/video tracks are added to, or removed from the webRTC session, it
+needs to be renegotiated. One peer will create an offer, pass it to the other peer which creates
+an answer and passes it back.
+```
+{
+	type : 'sdp',
+	data : <SDP object>, 
+}
+```
+
+The SDP object should have a obj.type of either `'offer'` or `'answer'` set by 
+the webRTC session object.
+
+1. Both peers create a webRTC session
+2. Both peers add their local audio/video tracks to the session
+3. Both webRTC sessions will now be in a state of needing negotiation.
+4. __Only one__ peer creates an offer SDP. The host side should do this. If the host is slow, the
+client side might have time to send a `'negotiation, request'`. As long as this is handled 
+according to protocol, its not a problem
+5. The SDP offer is send to the other peer
+6. The peer that now received the SDP offer adds it to its webRTC session and creates an
+SDP answer.
+7. The SDP answer is sent back to the first peer.
+8. Receiveing the answer, the first peer adds it to its webRTC session
+
+When SDP is accepted, the webRTC sessions produce audio/video tracks sent by the 
+remote peer, to be shown to the user.
 
 ### normal operation
 
