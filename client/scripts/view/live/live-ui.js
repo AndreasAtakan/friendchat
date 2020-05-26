@@ -150,7 +150,7 @@ library.component = library.component || {};
 	
 	ns.UI.prototype.setModePresentation = function( presenterId, isPresenter ) {
 		const self = this;
-		console.log( 'UI.setModePresentation', presenterId )
+		console.log( 'UI.setModePresentation', [ presenterId, isPresenter ])
 		if ( isPresenter )
 			presenterId = 'selfie';
 		
@@ -168,6 +168,7 @@ library.component = library.component || {};
 		else
 			self.togglePopped( true );
 		
+		self.updateDisplayMode();
 	}
 	
 	ns.UI.prototype.clearModePresentation = function() {
@@ -181,16 +182,17 @@ library.component = library.component || {};
 		self.menu.setState( 'mode-presentation', false );
 		
 		self.presenterId = null;
+		self.updateDisplayMode();
 	}
 	
 	ns.UI.prototype.setModeFollowSpeaker = function( isActive ) {
 		const self = this;
 		console.log( 'UI.setModeFollowSpeaker', isActive );
-		if ( self.modeFollowSpeaker === isActive )
+		if ( self.showThumbs === isActive )
 			return;
 		
-		self.modeFollowSpeaker = isActive;
-		self.setThumbsMode( self.modeFollowSpeaker );
+		self.showThumbs = isActive;
+		self.updateDisplayMode();
 	}
 	
 	ns.UI.prototype.setUseRoundBois = function( useRoundBois ) {
@@ -395,16 +397,18 @@ library.component = library.component || {};
 		console.log( 'clearCurrentMode' );
 	}
 	
-	ns.UI.prototype.setThumbsMode = function( show ) {
+	ns.UI.prototype.updateDisplayMode = function( show ) {
 		const self = this;
-		if ( show === self.showThumbs )
-			return;
-		
-		self.showThumbs = show;
-		self.updateSelfieState();
-		self.updateGridClass();
 		self.toggleThumbGrid();
+		
+		self.peerIds.forEach( pId => {
+			self.updatePeerMode( pId );
+		});
+		
+		self.updateGridClass();
 		self.updateThumbsGrid();
+		self.updateVoiceListMode();
+		self.updateSelfieState();
 	}
 	
 	ns.UI.prototype.showMenu = function() {
@@ -507,16 +511,16 @@ library.component = library.component || {};
 	}
 	
 	ns.UI.prototype.addNestedApp = function( appData ) {
-		var self = this;
+		const self = this;
 		if ( self.nestedApp )
 			self.nestedApp.close();
 		
-		var appId = friendUP.tool.uid( 'nested-app' );
-		var conf = {
-			id : appId,
+		const appId = friendUP.tool.uid( 'nested-app' );
+		const conf = {
+			id          : appId,
 			containerId : self.peerGridId,
-			app : appData,
-			onclose : onclose,
+			app         : appData,
+			onclose     : onclose,
 		};
 		self.nestedApp = new library.component.NestedApp( conf );
 		self.updateGridClass();
@@ -635,32 +639,31 @@ library.component = library.component || {};
 			showThumbgird : self.showThumbs,
 			currentS      : self.currentSpeaker,
 			lastS         : self.lastSpeaker,
+			presenter     : self.presenterId,
 		});
 		if ( self.isVoiceOnly ) {
 			setInList( peer );
 			return;
 		}
 		
-		/*
-		if ( self.showThumbs ) {
-			if ( checkIsSpeaker( peerId ))
+		if ( self.presenterId ) {
+			if ( peerId == self.presenterId )
 				setInGrid( peer );
 			else
-				setInThumbs( peer );
-		} else {
-			setInGrid( peer );
+				setInList( peer );
+			
+			return;
 		}
-		*/
+		
 		if ( self.showThumbs ) {
 			setInThumbs( peer );
+			return;
 		}
-		else
-			setInGrid( peer );
 		
-		peer.reflow();
-		self.updateGridClass();
+		setInGrid( peer );
 		
 		function setInList( peer ) {
+			console.log( 'setInList', peer.id );
 			if ( peer.isInList )
 				return;
 			
@@ -672,9 +675,11 @@ library.component = library.component || {};
 			
 			peer.setInList();
 			self.audioList.add( peer.el );
+			self.updateGridClass();
 		}
 		
 		function setInGrid( peer ) {
+			console.log( 'setInGrid', peer.id );
 			if ( peer.isInGrid )
 				return;
 			
@@ -687,9 +692,11 @@ library.component = library.component || {};
 			peer.setInGrid();
 			self.gridContainer.appendChild( peer.el );
 			self.peerGridOrder.push( peer.id );
+			self.updateGridClass();
 		}
 		
 		function setInThumbs( peer ) {
+			console.log( 'setInThumbs', peer.id );
 			if ( peer.isInThumbs )
 				return;
 			
@@ -701,6 +708,7 @@ library.component = library.component || {};
 			
 			peer.setInThumbs();
 			self.thumbGrid.add( peer );
+			self.updateGridClass();
 		}
 		
 		/*
@@ -819,7 +827,7 @@ library.component = library.component || {};
 		if ( !selfie )
 			return;
 		
-		if ( self.showThumbs ) {
+		if ( self.presenterId || self.showThumbs ) {
 			if ( self.currentGridKlass ) {
 				if ( 'grid1' === self.currentGridKlass )
 					return;
@@ -835,12 +843,7 @@ library.component = library.component || {};
 		self.currentGridKlass = self.currentGridKlass || 'grid1';
 		container.classList.remove( self.currentGridKlass );
 		const peerNum = getPeerNum();
-		let newGridKlass = 'grid1';
-		if ( self.showThumbs && self.currentSpeaker )
-			newGridKlass = 'grid1';
-		else {
-			newGridKlass = getGridKlass( peerNum );
-		}
+		const newGridKlass = getGridKlass( peerNum );
 		
 		self.currentGridKlass = newGridKlass;
 		container.classList.add( self.currentGridKlass );
@@ -875,7 +878,13 @@ library.component = library.component || {};
 		console.log( 'toggleThumbGrid', {
 			voiceOnly  : self.isVoiceOnly,
 			showThumbs : self.showThumbs,
+			presenter  : self.presenterId,
 		});
+		
+		if ( self.presenterId ) {
+			disable();
+			return;
+		}
 		
 		if ( self.isVoiceOnly ) {
 			disable();
@@ -887,9 +896,6 @@ library.component = library.component || {};
 		else
 			disable();
 		
-		self.peerIds.forEach( pId => {
-			self.updatePeerMode( pId );
-		});
 		self.updateThumbsGrid();
 		
 		function enable() {
@@ -929,7 +935,7 @@ library.component = library.component || {};
 		self.gridContainer.classList.toggle( 'hidden', isVoiceOnly );
 		self.listContainer.classList.toggle( 'expand', isVoiceOnly );
 		self.listContainer.classList.toggle( 'fortify', !isVoiceOnly );
-		self.toggleThumbGrid();
+		self.updateDisplayMode();
 		self.audioList.show( isVoiceOnly );
 		
 		self.updateVoiceListMode();
@@ -1406,7 +1412,7 @@ library.component = library.component || {};
 		if ( !selfie )
 			return;
 		
-		if ( self.modeFollowSpeaker )
+		if ( self.showThumbs )
 			selfie.updateDisplayState( true );
 		else
 			selfie.updateDisplayState();
@@ -1416,14 +1422,14 @@ library.component = library.component || {};
 	
 	ns.UI.prototype.toggleModeSpeaker = function() {
 		const self = this;
-		self.modeFollowSpeaker = !self.modeFollowSpeaker;
-		if ( self.modeFollowSpeaker )
+		self.showThumbs = !self.showThumbs;
+		if ( self.showThumbs )
 			enable();
 		else
 			disable();
 		
 		self.updateThumbsGrid();
-		return self.modeFollowSpeaker;
+		return self.showThumbs;
 		
 		function enable() {
 			self.clearDragger();
@@ -1439,6 +1445,8 @@ library.component = library.component || {};
 		const self = this;
 		let isActive = self.showThumbs;
 		if ( self.isVoiceOnly )
+			isActive = false;
+		if ( self.presenterId )
 			isActive = false;
 		
 		//
