@@ -132,6 +132,7 @@ library.component = library.component || {};
 	ns.GuestRoom = function( conf, accConn ) {
 		const self = this;
 		self.id = conf.roomId;
+		self.clientId = conf.roomId;
 		self.identity = conf.identity;
 		self.permissions = conf.permissions;
 		self.idc = conf.idCache;
@@ -142,15 +143,10 @@ library.component = library.component || {};
 		self.init( accConn );
 	}
 	
-	// Public
+	ns.GuestRoom.prototype =
+		Object.create( library.contact.PresenceRoom.prototype );
 	
-	ns.GuestRoom.prototype.close = function() {
-		const self = this;
-		if ( self.conn )
-			self.conn.close();
-		
-		delete self.conn;
-	}
+	// Public
 	
 	// Private
 	
@@ -169,6 +165,7 @@ library.component = library.component || {};
 		self.conn.on( 'identity', identity );
 		self.conn.on( 'live', live );
 		self.conn.on( 'chat', chat );
+		self.conn.on( 'invite', e => self.handleInvite( e ));
 		
 		const initEvent = {
 			type : 'initialize',
@@ -188,6 +185,7 @@ library.component = library.component || {};
 	
 	ns.GuestRoom.prototype.handleInit = function( state ) {
 		const self = this;
+		console.log( 'GuestRoom.handleInit', state );
 		self.users = state.users;
 		self.identities = state.identities || {};
 		const perms = self.permissions || {
@@ -209,8 +207,10 @@ library.component = library.component || {};
 			isStream    : state.settings.isStream,
 			guestAvatar : state.guestAvatar,
 		};
+		
 		self.live = new library.rtc.RtcSession( conf, liveEvent, onclose );
 		self.live.on( 'chat', chat );
+		self.live.on( 'invite', invite );
 		self.live.on( 'live-name', liveName );
 		const joinLive = {
 			type : 'live-join',
@@ -224,7 +224,15 @@ library.component = library.component || {};
 				data : d,
 			});
 		}
+		
 		function chat( e ) { self.handleLiveChat( e ); }
+		function invite( e ) {
+			const inv = {
+				type : 'invite',
+				data : e,
+			};
+			self.send( inv );
+		}
 		function liveName( e ) { self.handleLiveName( e ); }
 		function onclose( e ) {
 			const leave = {
@@ -327,6 +335,7 @@ library.component = library.component || {};
 	
 	ns.GuestRoom.prototype.handleLiveToRoom = function( event ) {
 		const self = this;
+		console.log( 'handleLiveToRoom', event );
 		const live = {
 			type : 'live',
 			data : event,

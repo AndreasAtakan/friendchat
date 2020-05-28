@@ -2,24 +2,24 @@
 <html>
 	<head>
 		<script src="
-			/webclient/js/utils/events.js;
-			webclient/apps/FriendChat/scripts/component/tool.js;
-			webclient/apps/FriendChat/dependencies/adapterjs/adapter-latest.js;
+			/webclient/apps/FriendChat/scripts/component/tool.js;
+			webclient/apps/FriendChat/scripts/component/common.js;
 			webclient/apps/FriendChat/api/logSock.js;
 			webclient/apps/FriendChat/api/view.js;
 			webclient/apps/FriendChat/api/compatability.js;
+			webclient/apps/FriendChat/scripts/component/viewComponent.js;
 			webclient/apps/FriendChat/scripts/component/parser.js;
 			webclient/apps/FriendChat/scripts/component/socket.js;
 			webclient/apps/FriendChat/scripts/component/voice.js;
 			webclient/apps/FriendChat/scripts/component/drop.js;
 			webclient/apps/FriendChat/scripts/component/share.js;
-			webclient/apps/FriendChat/scripts/component/common.js;
-			webclient/apps/FriendChat/scripts/component/viewComponent.js;
 			webclient/apps/FriendChat/scripts/component/menu.js;
 			webclient/apps/FriendChat/scripts/view/live/components-ui.js;
 			webclient/apps/FriendChat/scripts/view/live/components-rtc.js;
 			webclient/apps/FriendChat/scripts/view/live/init-checks.js;
+			webclient/apps/FriendChat/scripts/view/live/ui-overlays.js;
 			webclient/apps/FriendChat/scripts/view/live/ui-panes.js;
+			webclient/apps/FriendChat/scripts/view/live/ui-overlays.js;
 			webclient/apps/FriendChat/scripts/view/live/live-rtc.js;
 			webclient/apps/FriendChat/scripts/view/live/live-ui.js;
 			webclient/apps/FriendChat/scripts/view/live/live.js
@@ -36,6 +36,9 @@
 		" type="text/css">
 	</head>
 	<body id="hello" class="">
+		<!--
+			webclient/apps/FriendChat/dependencies/adapterjs/adapter-latest.js;
+		-->
 		<div id="live" class="group row cover MouseDefault">
 			<div id="live-content" class="expand column bar cover">
 				<div id="peer-container" class="expand bar row">
@@ -64,7 +67,7 @@
 				<div id="live-ui" class="bar column">
 					<div id="live-ui-panes" class="expand hidden">
 					</div>
-					<div id="ui-bottom-bar" class="fortify group row grad-bg-up">
+					<div id="ui-bottom-bar" class="fortify group row bottom-bg">
 						<div id="ui-left" class="group row start item-row">
 							<div id="show-menu-btn" class="btn fortify">
 								<i class="fa fa-fw fa-bars"></i>
@@ -88,7 +91,10 @@
 							</div>
 						</div>
 						<div id="ui-right" class="group row end item-row">
-							<div id="share-btn" class="btn fortify hidden">
+							<div id="recording" class="btn text danger fortify hidden">
+									● REC
+							</div>
+							<div id="share-link-btn" class="btn fortify hidden">
 								<i class="fa fa-fw fa-share-alt"></i>
 							</div>
 							<div id="settings-btn" class="btn fortify">
@@ -104,12 +110,24 @@
 			<div id="lists-container" class="group row cover fortify">
 				<!-- lists go here -->
 			</div>
-			
+			<!--
 			<div id="init-cover" class="abs-cover">
-				<!-- init checks go here -->
+				init checks go here 
 			</div>
+			-->
 			<div id="connecting-peers" class="hidden">
 			</div>
+			<!--
+			<div id="play-container" class="center-child abs-cover hidden">
+				<audio id="honk" src="../res/honkies.wav" class="hidden">
+				</audio>
+				<div id="play-display" class="">
+					<div id="play-btn" class="center-child">
+						<i class="fa fa-fw fa-caret-right"></i>
+					</div>
+				</div>
+			</div>
+			-->
 		</div>
 		<div id="fragments" class="hidden">
 
@@ -118,7 +136,7 @@ name,
 avatar,
 -->
 <script id="selfie-tmpl" type="text/html">
-<div id="selfie" class="peer selfie popped bar column">
+<div id="selfie" class="peer selfie bar column">
 	<div class="stream-container expand">
 		<div class="avatar" style="background-image: url(<%= avatar %>)">
 		</div>
@@ -433,20 +451,33 @@ avatar,
 						</div>
 					</div>
 				</div>
+				<div class="btn peer-reload" title="Reload this participant">
+					<i class="fa fa-fw fa-refresh"></i>
+				</div>
 				<div class="stream-state fortify group row center">
-					<div class="state say-state hidden" title="Read out chat messages from this participant">
+					<div class="state say-state hidden"
+						title="Read out chat messages from this participant"
+					>
 						<i class="fa fa-fw fa-volume-up"></i>
 					</div>
-					<div class="state muted blink-red hidden" title="You have muted this participant">
+					<div class="state muted blink-red hidden"
+						title="You have muted this participant"
+					>
 						<i class="fa fa-fw fa-microphone"></i>
 					</div>
-					<div class="state remote-mute  hidden" title="This participant has muted their audio">
+					<div class="state remote-mute  hidden"
+						title="This participant has muted their audio"
+					>
 						<i class="fa fa-fw fa-microphone"></i>
 					</div>
-					<div class="state blinded blink-red  hidden" title="You have blocked video from this participant">
+					<div class="state blinded blink-red  hidden"
+						title="You have blocked video from this participant"
+					>
 						<i class="fa fa-fw fa-video-camera"></i>
 					</div>
-					<div class="state remote-blind  hidden" title="This participant has paused their video">
+					<div class="state remote-blind  hidden"
+						title="This participant has paused their video"
+					>
 						<i class="fa fa-fw fa-video-camera"></i>
 					</div>
 				</div>
@@ -458,7 +489,10 @@ avatar,
 			</div>
 		</div>
 		<div class="ui-view expand">
-			<div class="dragger center-child std-bg dropzone Accelerated hidden" draggable="true" title="Drag to reposition">
+			<div class="dragger center-child std-bg dropzone Accelerated hidden"
+				draggable="true"
+				title="Drag to reposition"
+			>
 				<div class="drag-hint center-child">
 					<i class="fa fa-fw fa-hand-rock-o draggable"></i>
 					<i class="fa fa-fw fa-arrows dragee hidden"></i>
@@ -486,24 +520,6 @@ avatar,
 </div>
 </script>
 
-<!-- video
-id,
-src,
--->
-<script id="stream-video-tmpl" type="text/html">
-<video id="<%= id %>" src="<%= src %>" class="video stream Accelerated" autoplay="autoplay" playinline>
-</video>
-</script>
-
-<!-- audio
-id,
-src,
--->
-<script id="stream-audio-tmpl" type="text/html">
-<audio id="<%= id %>" src="<%= src %>" class="audio" autoplay="autoplay">
-</audio>
-</script>
-
 <!-- istyping
 id,
 from,
@@ -519,138 +535,6 @@ from,
 </div>
 </script>
 
-<!--
-current,
--->
-<script id="viewpane-change-username-tmpl" type="text/html">
-<div id="change-username" class="center-child">
-	<div id="change-username-content" class="std-bg">
-		{i18n_change_username}
-		<form id="change-username-form">
-			<div class="input-wrap">
-				<input id="change-username-input" type="text" value="<%= current %>">
-			</div>
-			<div class="group row btn-row">
-				<div id="change-username-accept" class="btn text Accept">
-					<i class="fa fa-fw fa-check"></i>
-					{i18n_set_name}
-				</div>
-				<div id="change-username-cancel" class="btn text Danger">
-					<i class="fa fa-fw fa-close"></i>
-					{i18n_cancel}
-				</div>
-			</div>
-		</form>
-	</div>
-</div>
-</script>
-
-<!-- source-select
-
--->
-<script id="select-source-tmpl" type="text/html">
-<div id="source-select" class="std-bg bar column start">
-	<div id="source-head"class="fortify group row">
-		<div id="source-title" class="expand Padding">
-			{i18n_audio_video_settings}
-		</div>
-		<div id="source-back" class="btn center-child fortify hidden">
-			<i class="fa fa-fw fa-close"></i>
-		</div>
-	</div>
-	<div id="source-preview" class="expand">
-		<div id="source-preview-reset" class="center-child">
-			<div id="source-preview-hint" class="LED">
-				<div>
-					{i18n_camera_preview}
-				</div>
-				<i id="source-no-preview-i" class="fa fa-fw fa-eye On"></i>
-			</div>
-			<video id="source-preview-video" src="" playinline autoplay="autoplay" class="">
-		</div>
-	</div>
-	<div id="source-inputs" class="fortify">
-		<div id="source-status">
-			<div id="source-error" class="hidden">
-				<div class="error-message">
-				</div>
-				<div class="error-buttons group row tighten">
-					<button class="button available" title="Show available devices">
-						<i class="fa fa-fw fa-list"></i>
-						{i18n_show_available}
-					</button>
-					<button class="button danger ignore" title="Ignore errors and close">
-						<i class="fa fa-fw fa-reply"></i>
-						{i18n_ignore}
-					</button>
-				</div>
-			</div>
-		</div>
-		<div id="source-input">
-			<div id="audiooutput-container" class="hidden">
-				<div id="audiooutput-error" class="error-message hidden">
-				</div>
-				<div class="group row">
-					<div class="select-icon std-icon fortify">
-						<i class="fa fa-fw fa-volume-up"></i>
-					</div>
-					<div id="audiooutput-select" class="expand">
-					</div>
-				</div>
-				<video id="audiooutput-test" class="hidden" playinline>
-			</div>
-			<div id="audioinput-container" class="">
-				<div id="audioinput-error" class="error-message hidden">
-				</div>
-				<div class="group row">
-					<div class="select-icon std-icon fortify">
-						<i id="audioinput-icon"
-							class="fa fa-fw fa-microphone">
-						</i>
-						<i id="audioinput-checking"
-							class="fa fa-fw fa-circle-o-notch fa-spin hidden">
-						</i>
-					</div>
-					<div id="audioinput-select" class="expand">
-					</div>
-					<div id="source-select-av-container" class="fortify">
-					</div>
-				</div>
-			</div>
-			<div id="videoinput-container" class="">
-				<div id="videoinput-error" class="error-message hidden">
-				</div>
-				<div class="group row">
-					<div class="select-icon std-icon fortify">
-						<i class="fa fa-fw fa-video-camera"></i>
-					</div>
-					<div id="videoinput-select" class="expand">
-					</div>
-				</div>
-			</div>
-		</div>
-		<div id="source-select-buttons" class="group row end btn-row">
-			<div id="apply-select"
-				class="btn text"
-				title="Apply current selection">
-				<i class="fa fa-fw fa-check"></i>
-				{i18n_save}
-			</div>
-			<div id="discard-select"
-				class="btn text danger"
-				title="Discard any changes and close">
-				<i class="fa fa-fw fa-close"></i>
-				{i18n_cancel}
-			</div>
-			<div id="refresh-select"
-				class="btn text hidden"
-				title="Check for changes in available devices">
-				<i class="fa fa-fw fa-cube"></i>
-				{i18n_refresh}
-			</div>
-		</div>
-	</div>
-</script>
 
 <!-- list
 id,
@@ -740,282 +624,6 @@ content,
 </div>
 </script>
 
-<!-- initchecks-ui-pane-tmpl
-checks
--->
-<script id="initchecks-ui-pane-tmpl" type="text/html">
-<div id="init-checks" class="init-checks solid-bg">
-	<div id="init-checks-results" class="bar column cover SelectableText">
-		<div id="init-check-errors" class="fortify hidden">
-			<div class="error-message-options">
-				<div id="init-error" class="error">
-					{i18n_well_thats}
-				</div>
-				<div id="error-must-close" class="">
-					{i18n_fatal_no_service}
-				</div>
-				<div id="error-can-continue" class="hidden">
-					{i18n_warning_a_problem_might}
-				</div>
-			</div>
-			<div class="error-buttons btn-row group row start">
-				<div id="init-checks-continue" class="btn text warning fortify group row hidden">
-					<i class="fa fa-fw fa-exclamation-circle"></i>
-					<div>
-						{i18n_continue}
-					</div>
-				</div>
-				<div id="init-checks-close" class="btn text danger fortify group row">
-					<i class="fa fa-fw fa-close"></i>
-					<div>
-						{i18n_close}
-					</div>
-				</div>
-			</div>
-		</div>
-		<div id="init-checks-tests" class="expand">
-			<%= checks %>
-		</div>
-	</div>
-	<div id="init-checks-overlay" class="center-child solid-bg">
-		<div id="init-checks-progress" class="group row">
-			<div id="init-checks-verify-spinner" class="center-child">
-				<i class="fa fa-fw fa-circle-o-notch fa-spin"></i>
-			</div>
-			<div id="init-checks-verify-label">
-				{i18n_verifying_resources}
-			</div>
-		</div>
-	</div>
-</div>
-</script>
-
-<!-- initchecks-wrap-tmpl
-id,
-hidden,
-content,
--->
-<script id="initchecks-wrap-tmpl" type="text/html">
-<div id="<%= id %>" class="initchecks-wrap group row left <%= hidden %>">
-	<div class="btn initchecks-toggle-item fortify">
-		<i class="fa fa-fw fa-plus"></i>
-	</div>
-	<div class="initchecks-content expand">
-		<%= content %>
-	</div>
-</div>
-</script>
-
-<!-- initchecks-item-tmpl
-type,
-desc,
-state,
--->
-<script id="initchecks-item-tmpl" type="text/html">
-<div>
-	<div class="init-type">
-		<%= type %>
-	</div>
-	<div class="init-info group row start hidden">
-		<div class="init-icon">
-			<i class="fa fa-fw fa-circle-o-notch fa-spin"></i>
-		</div>
-		<div class="init-desc">
-			<%= desc %>
-		</div>
-		<div class="init-state">
-			<%= state %>
-		</div>
-	</div>
-</div>
-</script>
-
-<!-- initchecks-browser
-type,
--->
-<script id="initchecks-browser" type="text/html">
-<div>
-	<div class="init-type">
-		<%= type %>
-	</div>
-	<div class="init-info hidden">
-		<div id="init-check-secure" class="init-info-row group row start">
-			<div class="init-icon">
-				<i class="fa fa-fw fa-cube"></i>
-			</div>
-			<div class="init-desc">
-				
-			</div>
-			<div class="init-state">
-				
-			</div>
-		</div>
-		<div id="init-check-browser" class="init-info-row group row start">
-			<div class="init-icon">
-				<i class="fa fa-fw fa-cube"></i>
-			</div>
-			<div class="init-desc">
-				
-			</div>
-			<div class="init-state">
-				
-			</div>
-		</div>
-		<div class="init-info-row">
-			<div class="group row start Selectable">
-				<div class="init-icon">
-					<i class="fa fa-fw fa-cogs"></i>
-				</div>
-				<div class="init-desc">
-					{i18n_capabilities}:
-				</div>
-			</div>
-			<div id="init-browser-caps">
-			</div>
-		</div>
-	</div>
-</div>
-</script>
-
-<!-- initchecks-browser-cap
-id,
-label,
-statusIcon,
--->
-<script id="initchecks-browser-cap" type="text/html">
-<div id="<%= id %>" class="group row">
-	<div class="browser-cap-status">
-		<i class="cap-ok fa fa-fw fa-check"></i>
-		<i class="cap-fail fa fa-fw fa-close"></i>
-	</div>
-	<div class="browser-cap-label">
-		<%= label %>
-	</div>
-</div>
-</script>
-
-<!-- initchecks-devices
-type,
--->
-<script id="initchecks-devices-tmpl" type="text/html">
-<div>
-	<div class="init-type">
-		<%= type %>
-	</div>
-	<div class="init-info group row start hidden">
-		<div class="init-icon">
-			<i class="fa fa-fw fa-circle-o-notch fa-spin"></i>
-		</div>
-		<div class="init-desc">
-			{i18n_device_access_error}
-		</div>
-		<div class="init-state">
-			<%= state %>
-		</div>
-	</div>
-</div>
-</script>
-
-<!-- initchecks-selfie
-type,
-desc,
-state,
--->
-<script id="initchecks-selfie-tmpl" type="text/html">
-<div>
-	<div class="init-type">
-		<%= type %>
-	</div>
-	<div class="init-info group row start hidden">
-		<div class="init-icon">
-			<i class="fa fa-fw fa-circle-o-notch fa-spin"></i>
-		</div>
-		<div class="init-desc">
-			<%= desc %>
-		</div>
-		<div class="init-state">
-			<%= state %>
-		</div>
-	</div>
-	<div id="init-selfie-error" class="init-info group row start hidden">
-		<div class="init-text fortify">
-			Error
-		</div>
-		<div class="init-text error-desc">
-			n/a
-		</div>
-	</div>
-	<div id="init-selfie-cons" class="init-info group row start hidden">
-		<div class="init-text fortify">
-			{i18n_constraints}
-		</div>
-		<div class="init-text cons-desc">
-			n/a
-		</div>
-	</div>
-</div>
-</script>
-
-<!-- initchecks-ice-tmpl
-type,
--->
-<script id="initchecks-ice-tmpl" type="text/html">
-<div class="">
-	<div class="init-type">
-		<%= type %>
-	</div>
-	<div class="init-info hidden">
-	</div>
-</div>
-</script>
-
-<!-- initchecks-row-tmpl
-id,
-desc,
--->
-<script id="initchecks-row-tmpl" type="text/html">
-<div id="<%= id %>" class="init-check-row group row start allow-wrap">
-	<div class="init-icon fortify">
-		<i class="fa fa-fw fa-circle-o-notch fa-spin"></i>
-	</div>
-	<div class="init-desc fortify">
-		<%= desc %>
-	</div>
-	<div class="init-state expand">
-	</div>
-</div>
-</script>
-
-<!-- initchecks-media-tmpl
-type,
-state,
-btnIcon
--->
-<script id="initchecks-media-tmpl" type="text/html">
-<div class="">
-	<div class="init-type">
-		<%= type %>
-	</div>
-	<div class="init-info group row start hidden">
-		<div class="init-icon">
-			<i class="fa fa-fw fa-circle-o-notch fa-spin"></i>
-		</div>
-		<div class="init-desc">
-		</div>
-		<div class="init-state">
-			<%= state %>
-		</div>
-	</div>
-	<div class="init-media-err group row start btn-row hidden">
-		<div class="btn text group row">
-			<i class="fa fa-fw <%= btnIcon %>"></i>
-			<div>
-				{i18n_choose_input}
-			</div>
-		</div>
-	</div>
-</div>
-</script>
 
 <!-- menu-container-tmpl
 id,
@@ -1094,7 +702,7 @@ faIcon,
 
 -->
 <script id="chat-pane-tmpl" type="text/html">
-<div id="chat-pane" class="std-bg abs-cover">
+<div id="chat-pane" class="grad-bg-down abs-cover">
 	<!-- chat thingie goes here -->
 	<div id="chat-pane-close" class="btn center-child">
 		<i class="fa fa-fw fa-close"></i>

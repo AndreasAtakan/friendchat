@@ -25,25 +25,28 @@ var fupLocal = {}; // internals
 var friend = window.friend || {}; // already instanced stuff
 
 // add friendUP api
+/*
 (function() {
-	var scripts = [
-		//'utils/engine.js',
-		//'utils/events.js',
+	const scripts = [
 		'utils/tool.js',
 		'io/request.js',
 	];
 	
-	var path = '/webclient/js/';
-	var pathArr = scripts.map( setPath );
-	var scriptPath = pathArr.join( ';' );
-	var script = document.createElement( 'script' );
+	const path = '/webclient/js/';
+	const pathArr = scripts.map( setPath );
+	const scriptPath = pathArr.join( ';' );
+	const script = document.createElement( 'script' );
 	script.type = 'text/javascript';
 	script.src = scriptPath;
-	script.onload = function( event ) {}
+	script.onload = function( event ) {
+		if ( window.Application )
+			window.Application.setExternalsLoaded();
+	}
 	document.head.appendChild( script );
 	
 	function setPath( script ) { return path + script; }
 })();
+*/
 
 // View
 // an interface for views, new it
@@ -190,14 +193,17 @@ var friend = window.friend || {}; // already instanced stuff
 			self.viewName = filename.split( '.' )[ 0 ];
 		}
 		
-		var windowConf = self.windowConf;
-		var callbackId = self.app.setCallback( viewCreate )
+		const windowConf = self.windowConf;
+		const callbackId = self.app.setCallback( viewCreate )
 		if ( self.app.screen )
 			windowConf.screen = self.app.screen.id;
 		
 		const viewConf = windowConf.viewConf || {};
 		windowConf.viewConf = viewConf;
 		viewConf.deviceType = self.app.deviceType;
+		
+		if ( self.app.fragments )
+			viewConf.fragments = self.app.fragments;
 		
 		if ( self.app.translations )
 			viewConf.translations = self.app.translations;
@@ -211,17 +217,21 @@ var friend = window.friend || {}; // already instanced stuff
 		if ( null != self.app.appSettings )
 			viewConf.appSettings = self.app.appSettings;
 		
-		self.app.on( self.id, viewEvent );
+		self.fromView = new library.component.EventNode( self.id, self.app );
+		self.fromView.on( 'app', e => self.toApp( e ));
+		self.fromView.on( 'log-sock', e => self.toLogSock( e ));
+		self.fromView.on( 'conn-state', e => self.toConnState( e ));
+		self.fromView.on( 'loaded', loaded );
+		self.fromView.on( 'ready', ready );
+		self.fromView.on( 'minimized', mini );
+		self.fromView.on( 'show-notify', e => self.handleNotification( e ));
+		//self.app.on( self.id, viewEvent );
 		self.app.sendMessage({
 			type   : 'view',
 			viewId : self.id,
 			id     : callbackId,
 			data   : windowConf,
 		});
-		
-		self.on( 'loaded', loaded );
-		self.on( 'ready', ready );
-		self.on( 'minimized', mini );
 		
 		function viewCreate( msg ) {
 			if ( msg.data.toUpperCase() !== 'OK' ) {
@@ -245,38 +255,34 @@ var friend = window.friend || {}; // already instanced stuff
 			console.log( 'view.init.viewCreate - no filepath or content!?', conf );
 		}
 		
-		function viewEvent( e ) { self.handleViewEvent( e ); }
 		function loaded( e ) { self.handleLoaded( e ); }
 		function ready( e ) { self.handleReady( e ); }
 		function mini( e ) { self.handleMinimized( e ); }
 	}
 	
-	ns.View.prototype.handleViewEvent = function( event ) {
+	ns.View.prototype.toApp = function( event ) {
 		const self = this;
-		if ( !event )
-			return;
-		
-		if ( 'app' === event.type ) {
-			const msg = event.data;
-			self.emit( msg.type, msg.data );
-		}
-		
-		if ( 'log-sock' === event.type ) {
-			const args = event.data;
-			self.app.handleViewLog( args, self.viewName );
-		}
-		
+		self.emit( event.type, event.data );
+	}
+	
+	ns.View.prototype.toLogSock = function( args ) {
+		const self = this;
+		self.app.handleViewLog( args, self.viewName );
+	}
+	
+	ns.View.prototype.toConnState = function( event ) {
+		const self = this;
+		self.app.handleConnState( event );
 	}
 	
 	ns.View.prototype.setContentUrl = function( htmlPath ) {
 		const self = this;
-		var msg = {
-			method : 'setRichContentUrl',
-			url : self.app.filePath + htmlPath,
-			base : self.app.filePath,
+		const msg = {
+			method   : 'setRichContentUrl',
+			url      : self.app.filePath + htmlPath,
+			base     : self.app.filePath,
 			filePath : self.app.filePath,
-			opts : {},
-			
+			opts     : {},
 		};
 		
 		if ( self.windowConf.viewTheme )
@@ -287,30 +293,41 @@ var friend = window.friend || {}; // already instanced stuff
 	
 	ns.View.prototype.handleLoaded = function( e ) {
 		const self = this;
-		self.sendMessage({
-			type : 'initialize',
-			data : self.initData,
-		}, true );
+		//self.loaded = true;
+		if ( self.initData )
+			self.sendMessage({
+				type : 'initialize',
+				data : self.initData,
+			}, true );
 		
 		if ( self.onload ) {
 			self.onload( e || true );
-			return;
 		}
+		
+		self.emit( 'loaded', e );
 	}
 	
 	ns.View.prototype.handleReady = function( e ) {
 		const self = this;
+		console.log( 'app.View.handleReady', e );
 		self.ready = true;
 		self.sendEventQueue();
 		if ( self.onready ) {
 			self.onready( e || true );
 			return;
 		}
+		
+		self.emit( 'ready', e );
 	}
 	
 	ns.View.prototype.handleMinimized = function( isMinimized ) {
 		const self = this;
 		self.isMinimized = isMinimized;
+	}
+	
+	ns.View.prototype.handleNotification = function( notie ) {
+		const self = this;
+		self.app.notify( notie );
 	}
 	
 	ns.View.prototype.doClose = function() {
@@ -343,6 +360,7 @@ var friend = window.friend || {}; // already instanced stuff
 	
 	ns.View.prototype.queueEvent = function( event ) {
 		const self = this;
+		console.log( 'app.View.queueEvent', event );
 		if ( !self.eventQueue )
 			self.eventQueue = [];
 		
@@ -351,6 +369,7 @@ var friend = window.friend || {}; // already instanced stuff
 	
 	ns.View.prototype.sendEventQueue = function() {
 		const self = this;
+		console.log( 'app.View.sendEventQueue', self.eventQueue );
 		self.eventQueue.forEach( send );
 		self.eventQueue = [];
 		function send( event ) {
@@ -431,17 +450,28 @@ var friend = window.friend || {}; // already instanced stuff
 
 // Filedialogs
 (function( ns, undefined ) {
-	ns.Filedialog = function( object )
-	{
-		if( !object ) return;
+	ns.Filedialog = function( title ) {
 		const self = this;
-		self.id = friendUP.tool.uid;
+		self.title = title || 'File';
 		self.app = window.Application;
-		this.init( object );
+		this.init();
 	}
-	ns.Filedialog.prototype.init = function( object )
-	{
+	
+	// resolves to a list of files selected by user
+	ns.Filedialog.prototype.open = function( path, title ) {
 		const self = this;
+		return self.send( 'load', path, null, title );
+	}
+	
+	ns.Filedialog.prototype.load = function( path, filename ) {
+		const self = this;
+	}
+	
+	ns.Filedialog.prototype.init = function() {
+		const self = this;
+		return;
+		
+		
 		var targetview = false;
 		var triggerFunction = false;
 		var type = false;
@@ -469,23 +499,33 @@ var friend = window.friend || {}; // already instanced stuff
 					break;
 			}
 		}
-
-		if ( !triggerFunction ) return;
-		if ( !type ) type = 'open';
-
+		
+		if ( !triggerFunction )
+			return;
+		
+		if ( !type )
+			type = 'open';
+		
 		var callbackId = self.app.setCallback( triggerFunction );
-
-		self.app.sendMessage( {
+	}
+	
+	ns.Filedialog.prototype.send = function( type, path, file ) {
+		const self = this;
+		const cb = self.app.setPromiseCallback();
+		self.app.sendMessage({
 			type:        'system',
 			command:     'filedialog',
 			method:      'open',
-			callbackId:   callbackId,
+			callbackId:   cb.id,
 			dialogType:   type,
 			path:         path,
-			filename:     filename,
-			title:        title
-		} );
+			filename:     file || '',
+			title:        self.title,
+		});
+		
+		return cb.promise;
 	}
+	
 })( api );
 
 
@@ -600,6 +640,9 @@ var friend = window.friend || {}; // already instanced stuff
 		self.subscriber = {};
 		self.commandMap = null;
 		
+		self.externalsLoaded = true;
+		self.preloadEvents = [];
+		
 		self.initAppEvent();
 		
 		function unhandledEvent( type, data ) {
@@ -609,22 +652,39 @@ var friend = window.friend || {}; // already instanced stuff
 	
 	ns.AppEvent.prototype = Object.create( EventEmitter.prototype );
 	
+	// Public
+	
+	ns.AppEvent.prototype.setExternalsLoaded = function() {
+		const self = this;
+		self.externalsLoaded = true;
+		if ( !self.preloadEvents.length )
+			return;
+		
+		self.preloadEvents.forEach( e => {
+			self.receiveEvent( e );
+		});
+		
+		self.preloadEvents = [];
+	}
+	
+	// Private
+	
 	ns.AppEvent.prototype.initAppEvent = function() {
 		const self = this;
 		self.commandMap = {
-			'door' : door,
-			'filedialog' : filedialog,
-			'fileload' : fileload,
-			'initappframe' : initialize,
-			'notify' : notify,
-			'register' : register,
-			'viewresponse' : viewResponse,
-			'dormantmaster' : dormantMaster,
+			'door'               : door,
+			'filedialog'         : filedialog,
+			'fileload'           : fileload,
+			'initappframe'       : initialize,
+			'notify'             : notify,
+			'register'           : register,
+			'viewresponse'       : viewResponse,
+			'dormantmaster'      : dormantMaster,
 			'applicationstorage' : storage,
-			'libraryresponse' : libResponse,
-			'refreshtheme' : refreshTheme,
-			'notification' : notification,
-			'quit' : quit,
+			'libraryresponse'    : libResponse,
+			'refreshtheme'       : refreshTheme,
+			'notification'       : notification,
+			'quit'               : quit,
 		};
 		
 		function door( e ) { self.receiveMessage( e ); }
@@ -645,7 +705,7 @@ var friend = window.friend || {}; // already instanced stuff
 			'closeview'   : closeView,
 			'setviewflag' : setViewFlag,
 			'wakeup'      : appWakeup,
-		}
+		};
 		
 		function closeView( e ) { self.closeView( e ); }
 		function setViewFlag( e ) { self.setViewFlag( e ); }
@@ -657,6 +717,12 @@ var friend = window.friend || {}; // already instanced stuff
 	
 	ns.AppEvent.prototype.receiveEvent = function( e ) {
 		const self = this;
+		if ( !friendUP || !friendUP.tool || !friendUP.tool.parse ) {
+			console.log( 'AppEvent.receiveEvent - parser not loaded yet', e );
+			self.preloadEvents.push( e );
+			throw new Error( 'AppEvent.receiveEvent - parser not loaded yet' );
+		}
+		
 		const msg = friendUP.tool.parse( e.data );
 		if ( !msg ) {
 			console.log( 'app.receiveEvent - no msg for event', e );
@@ -710,6 +776,11 @@ var friend = window.friend || {}; // already instanced stuff
 	ns.AppEvent.prototype.handleFromView = function( msg ) {
 		const self = this;
 		const type = msg.viewId;
+		if ( !type || !msg.data ) {
+			console.log( 'weird event', msg );
+			return;
+		}
+		
 		self.emit( type, msg.data );
 	}
 	
@@ -734,7 +805,7 @@ var friend = window.friend || {}; // already instanced stuff
 		future
 			.then( resBack )
 			.catch( errBack );
-			
+		
 		function resBack( res ) {
 			self.returnCallback( null, res, cbId );
 		}
@@ -936,7 +1007,30 @@ var friend = window.friend || {}; // already instanced stuff
 	
 	ns.AppEvent.prototype.initialize = function( msg ) {
 		const self = this;
+		if ( msg )
+			delete msg.dosDrivers;
+		
 		setBase( msg.base || msg.domain );
+		
+		/*
+		if ( !msg.args ) {
+			const notie = {
+				method : 'pushnotification',
+				data   : {
+					title   : 'boop',
+					clicked : true,
+					extra   : "{\"roomId\":\"room-70e38687-1445-4ef9-ada8-3db99ccf968f\",\"msgId\":\"msg-70c09120-4721-4955-bb00-a5ad9b55b41a\"}",
+				},
+			};
+			
+			msg.args = {
+				events : [
+					notie,
+				],
+			};
+		}
+		*/
+		
 		self.run( msg.args );
 		
 		function setBase( basePath ) {
@@ -981,7 +1075,7 @@ var friend = window.friend || {}; // already instanced stuff
 		onclose
 	) {
 		const self = this;
-		var view = new api.View(
+		const view = new api.View(
 			path,
 			conf,
 			initData,
@@ -994,6 +1088,11 @@ var friend = window.friend || {}; // already instanced stuff
 	ns.Application.prototype.setConfig = function( conf ) {
 		const self = this;
 		self.appConf = conf;
+		const update = {
+			type : 'app-config',
+			data : conf,
+		}
+		self.toAllViews( update );
 	}
 	
 	ns.Application.prototype.setSettings = function( settings ) {
@@ -1012,7 +1111,6 @@ var friend = window.friend || {}; // already instanced stuff
 	
 	ns.Application.prototype.setDev = function( dumpHost, name ) {
 		const self = this;
-		console.log( 'setDev - device type', self.deviceType );
 		if ( !dumpHost && name  ) {
 			if ( self.logSock )
 				self.logSock.setName( name );
@@ -1032,6 +1130,11 @@ var friend = window.friend || {}; // already instanced stuff
 			return;
 		
 		self.logSock.handleViewLog( args, viewName );
+	}
+	
+	ns.Application.prototype.handleConnState = function( event ) {
+		const self = this;
+		self.emit( 'conn-state', event );
 	}
 	
 	// Private
@@ -1081,9 +1184,9 @@ var friend = window.friend || {}; // already instanced stuff
 	
 	ns.Application.prototype.notify = function( conf ) {
 		const self = this;
-		var cid = self.setCallback( conf.callback );
-		var ccid = self.setCallback( conf.clickCallback );
-		var msg = {
+		const cid = self.setCallback( conf.callback );
+		const ccid = self.setCallback( conf.clickCallback );
+		const msg = {
 			type          : 'system',
 			command       : 'notification',
 			title         : conf.title,
@@ -1165,6 +1268,11 @@ var friend = window.friend || {}; // already instanced stuff
 		delete self.views[ viewId ];
 	}
 	
+	ns.Application.prototype.setFragments = function( fragStr ) {
+		const self = this;
+		self.fragments = fragStr;
+	}
+	
 	ns.Application.prototype.setLocale = function( locale, callback ) {
 		const self = this;
 		locale = locale || self.locale;
@@ -1223,7 +1331,7 @@ var friend = window.friend || {}; // already instanced stuff
 	
 	ns.Application.prototype.setCallback = function( callback ) {
 		const self = this;
-		var id = friendUP.tool.uid( 'callback' );
+		const id = friendUP.tool.uid( 'callback' );
 		self.callbacks[ id ] = callback;
 		
 		return id;
@@ -1231,13 +1339,34 @@ var friend = window.friend || {}; // already instanced stuff
 	
 	ns.Application.prototype.getCallback = function( id ) {
 		const self = this;
-		var callback = self.callbacks[ id ];
-		
-		if ( !callback )
+		const callback = self.callbacks[ id ];
+		if ( !callback ) {
+			console.log( 'app.getCallback - no callback for', {
+				id  : id,
+				cbs : self.callbacks,
+			});
 			return null;
+		}
 		
 		delete self.callbacks[ id ];
 		return callback;
+	}
+	
+	ns.Application.prototype.setPromiseCallback = function() {
+		const self = this;
+		const id = friendUP.tool.uid( 'pback' );
+		const cb = {
+			id      : id,
+			promise : null,
+		};
+		const p = new Promise(( resolve, reject ) => {
+			self.callbacks[ id ] = pBack;
+			function pBack( event ) {
+				resolve( event );
+			}
+		});
+		cb.promise = p;
+		return cb;
 	}
 	
 	// Get a translated string
@@ -1270,7 +1399,6 @@ var friend = window.friend || {}; // already instanced stuff
 	ns.Application.prototype.init = function() {
 		const self = this;
 		self.detectDeviceType();
-		console.log( 'Application.init - device type', self.deviceType );
 	}
 	
 	// DESKTOP
@@ -1325,6 +1453,11 @@ var friend = window.friend || {}; // already instanced stuff
 	
 	ns.Application.prototype.initLogSock = function( name ) {
 		const self = this;
+		if ( 'DESKTOP' === self.deviceType ) {
+			console.log( 'initLogSock - desktop, aborting', name );
+			return;
+		}
+		
 		if ( self.logSock ) {
 			self.logSock.reconnect();
 			return;
@@ -1344,53 +1477,47 @@ window.Application = new fupLocal.Application();
 	ns.ApplicationStorage = {
 		app : window.Application,
 	};
-	var self = ns.ApplicationStorage;
+	const self = ns.ApplicationStorage;
 	
-	ns.ApplicationStorage.set = function( id, data, callback )
-	{
-		var bundle = {
+	ns.ApplicationStorage.set = function( id, data ) {
+		const bundle = {
 			id : id,
 			data : data,
 		};
-		var msg = {
+		const msg = {
 			method : 'set',
 			data : bundle,
 		};
-		self.s( msg, callback );
+		return self._send( msg );
 	};
 	
-	ns.ApplicationStorage.get = function( id, callback )
-	{
-		var msg = {
+	ns.ApplicationStorage.get = function( id ) {
+		const msg = {
 			method : 'get',
 			data : {
 				id : id,
 			},
 			
 		};
-		self.s( msg, callback );
+		return self._send( msg );
 	};
 	
-	ns.ApplicationStorage.remove = function( id, callback )
-	{
-		var msg = {
+	ns.ApplicationStorage.remove = function( id ) {
+		const msg = {
 			method : 'remove',
 			data : {
 				id : id,
 			},
 		};
-		self.s( msg, callback );
+		return self._send( msg );
 	}
 	
-	ns.ApplicationStorage.s = function( msg, callback )
-	{
-		if ( callback ) {
-			var callbackId = self.app.setCallback( callback );
-			msg.callbackId = callbackId;
-		};
-		
+	ns.ApplicationStorage._send = function( msg ) {
+		const cb = self.app.setPromiseCallback();
+		msg.callbackId = cb.id;
 		msg.type = 'applicationstorage';
 		self.app.sendMessage( msg );
+		return cb.promise;
 	};
 	
 })( api );
@@ -1414,7 +1541,6 @@ window.Application = new fupLocal.Application();
 	
 	ns.File.prototype.init = function() {
 		const self = this;
-		console.log( 'File.init' );
 	}
 	
 	ns.File.prototype.expose = function( callback ) {
@@ -1461,9 +1587,9 @@ window.Application = new fupLocal.Application();
 (function( ns, undefined ) {
 	ns.Dormant = function() {
 		const self = this;
-		self.doors = {},
-		self.doorIds = [],
-		self.app = window.Application,
+		self.doors = {};
+		self.doorIds = [];
+		self.app = window.Application;
 		
 		self.init();
 	}
@@ -1982,7 +2108,7 @@ api.DoorFun.prototype.init = function() {
 		self.path = filePath;
 		self.actx = null;
 		self.fileBuffer = null;
-		self.playTimeout = 1000 * 3;
+		self.playTimeout = 1000 * 2;
 		self.playTimeoutId = null;
 		
 		self.init();

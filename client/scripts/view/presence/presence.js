@@ -34,6 +34,7 @@ library.view = library.view || {};
 		self.userId = null;
 		self.users = null;
 		self.onlineList = [];
+		self.inputMode = '';
 		
 		self.appOnline = null;
 		
@@ -43,11 +44,11 @@ library.view = library.view || {};
 	ns.Presence.prototype.init = function() {
 		const self = this;
 		window.View.setBody();
+		window.View.showLoading( true );
 		if ( window.View.appSettings )
 			self.compact = !!window.View.appSettings.compactChat;
 		
 		self.buildUserList();
-		self.appOnline = new library.component.AppOnline( View );
 		
 		// scroll to bottom on new message
 		self.messageScroller = new library.component.BottomScroller( 'messages' );
@@ -71,14 +72,18 @@ library.view = library.view || {};
 			ondrop   : onDrop,
 		}
 		self.drop = new library.component.Drop( dropConf );
-		function onDrop( event ) { self.send( event ); }
+		function onDrop( event ) {
+			console.log( 'Drop onDrop', event );
+			self.send( event );
+		}
 		
 		//
 		self.bindUI();
 		self.bindConn();
 		
 		//
-		self.conn.loaded();
+		const keepLoading = true;
+		window.View.loaded( keepLoading );
 	}
 	
 	ns.Presence.prototype.buildUserList = function() {
@@ -134,39 +139,36 @@ library.view = library.view || {};
 		attachBtn.addEventListener( 'click', attach, false );
 		
 		function attach( e ) {
-			var men = ge( 'attachment-menu' );
-			var can = men.querySelector( '.Cancel' );
-			var cam = men.querySelector( '.Camera' );
-			var upl = men.querySelector( '.Upload' );
-			can.onclick = function()
-			{
-				men.classList.remove( 'Showing' );
+			const menu = ge( 'attachment-menu' );
+			var can = menu.querySelector( '.Cancel' );
+			var cam = menu.querySelector( '.Camera' );
+			var upl = menu.querySelector( '.Upload' );
+			can.onclick = function() {
+				menu.classList.remove( 'Showing' );
 			}
 			
-			if( men.classList.contains( 'Showing' ) )
-			{
-				men.classList.remove( 'Showing' );
+			if( menu.classList.contains( 'Showing' )) {
+				menu.classList.remove( 'Showing' );
+			} else {
+				menu.classList.add( 'Showing' );
 			}
-			else
-			{
-				men.classList.add( 'Showing' );
-			}
+			
 			upl.onclick = function( e ){
-				men.classList.remove( 'Showing' );
-				executeAttach( e );
+				menu.classList.remove( 'Showing' );
+				attachFiles( e );
 			}
 			
-			self.conn.prepareCamera( cam, function( data ) {
-				men.classList.remove( 'Showing' );
-			} );
+			window.View.prepareCamera( cam, function( data ) {
+				menu.classList.remove( 'Showing' );
+			});
 		}
 		
-		function executeAttach( e )
-		{
-			self.send( {
-				type: 'attach',
+		function attachFiles() {
+			const attach = {
+				type: 'attach-files',
 				data: false
-			} );
+			};
+			self.send( attach );
 		};
 		
 		function closeBack( e ) { self.closeBack(); }
@@ -198,30 +200,36 @@ library.view = library.view || {};
 			self.input.submit(); // input is multiline input model
 		}
 		
-		// Handle paste if it isn't a file
-		window.addEventListener( 'paste', function( evt ) {
-			var pastedItems = (evt.clipboardData || evt.originalEvent.clipboardData).items;
-			for( var i in pastedItems ) {
-				var item = pastedItems[i];
-				if( item.kind === 'file' ) {
-					var p = new api.PasteHandler();
-					p.paste( evt, function( res ) {
-						if( res.response == true ) {
-							self.conn.send(	{
-								type: 'drag-n-drop',
-								data: [ {
-									Type: 'File',
-									Path: res.path
-								} ]
-							} );
-						}
-					} );
-					evt.preventDefault();
-					evt.stopPropagation();
-					break;
-				}
-			}
-		} );
+		window.addEventListener( 'paste', handlePaste, false );
+		function handlePaste( e ) { self.handlePaste( e ); }
+		
+		window.View.on( 'drop', e => {
+			self.handlePaste( e );
+		});
+	}
+	
+	ns.Presence.prototype.handlePaste = function( e ) {
+		const self = this;
+		const data = e.clipboardData || e.dataTransfer;
+		if ( !data )
+			return;
+		
+		const types = data.types.toString();
+		if ( 'Files' !== types )
+			return;
+		
+		const p = new api.PasteHandler();
+		p.handle( e )
+			.then( uploaded )
+			.catch( e => console.log( 'handlePaste err', e ));
+		
+		function uploaded( res ) {
+			const share = {
+				type: 'drag-n-drop',
+				data: res,
+			};
+			self.conn.send( share );
+		};
 	}
 	
 	ns.Presence.prototype.toggleLiveBtns = function( show ) {
@@ -287,6 +295,7 @@ library.view = library.view || {};
 		self.conn.on( 'live'           , live );
 		self.conn.on( 'persistent'     , persistent );
 		self.conn.on( 'title'          , title );
+		self.conn.on( 'at-strings'     , e => self.updateAtStrings( e ));
 		self.conn.on( 'identity-update', e => self.handleIdUpdate( e ));
 		
 		function initialize( e ) { self.handleInitialize( e ); }
@@ -301,8 +310,12 @@ library.view = library.view || {};
 	
 	ns.Presence.prototype.handleInitialize = function( conf ) {
 		const self = this;
+		/*
+		if ( 'DESKTOP' !== window.View.deviceType )
+			self.backBtn.classList.toggle( 'hidden', false );
+		*/
+		
 		hello.template = friend.template;
-		friend.template.addFragments( conf.commonFragments );
 		const state = conf.state;
 		
 		// things
@@ -380,42 +393,29 @@ library.view = library.view || {};
 		// link expansion
 		const leConf = {
 			templateManager : friend.template,
-		}
+		};
 		self.linkExpand = new library.component.LinkExpand( leConf );
 		
 		// message parsing
 		self.parser = new library.component.parse.Parser();
+		self.setAtParsing( state.atStrings );
 		self.parser.use( 'LinkStd' );
 		self.parser.use( 'Emojii', conf.emojii );
 		
 		// multiline input
-		const isMobile = ( window.View.deviceType === 'MOBILE' );
+		const isMobile = ( 'MOBILE' === window.View.deviceType );
 		const inputConf = {
 			containerId     : 'input-container',
 			templateManager : friend.template,
 			enterIsNewline  : isMobile,
-			onsubmit        : onSubmit,
-			onstate         : onState,
 		};
 		self.input = new library.component.MultiInput( inputConf );
-		function onSubmit( message ) {
-			self.inputHistory.add( message );
-			const msg = {
-				type : 'msg',
-				data : {
-					message : message,
-				},
-			};
-			self.sendChatEvent( msg );
-		}
-		
-		function onState( event ) {
-			const state = {
-				type: 'state',
-				data : event,
-			};
-			self.sendChatEvent( state );
-		}
+		self.input.on( 'state' , e => self.handleInputState( e ));
+		self.input.on( 'change', e => self.handleInputChange( e ));
+		self.input.on( 'tab'   , e => self.handleInputTab( e ));
+		self.input.on( 'arrow' , e => self.handleInputArrow( e ));
+		self.input.on( 'enter' , e => self.handleInputEnter( e ));
+		self.input.on( 'submit', e => self.handleInputSubmit( e ));
 		
 		// message builder
 		self.msgBuilder = new MsgBuilder(
@@ -438,13 +438,6 @@ library.view = library.view || {};
 		};
 		self.inputHistory = new library.component.InputHistory( hConf );
 		
-		// tab complete
-		const inputArea = document.getElementById( 'chat-input' );
-		inputArea.addEventListener( 'keydown', inputKeyDown, false );
-		function inputKeyDown( e ) {
-			self.checkAutoComplete( e );
-		}
-		
 		// emojii panel
 		const emoElementMap = {};
 		Object.keys( conf.emojii ).forEach( parseToMap );
@@ -465,6 +458,27 @@ library.view = library.view || {};
 			self.input.focus();
 		}
 		
+		// notify helper
+		const notieAnchor = self.input.getElement();
+		const notieConf = {
+			show : false,
+			css  : '',
+			position : {
+				outside : {
+					parent : 'top-left',
+					self   : 'bottom-left',
+				}
+			},
+		};
+		
+		try {
+			self.notify = new library.component.InputHelper( 'notify', notieAnchor, notieConf );
+		} catch ( ex ) {
+			console.log( 'exxx', ex );
+		}
+		self.notify.on( 'add', e => self.handleNotifyAdd( e ));
+		
+		// things
 		if ( self.isPrivate )
 			self.setPrivateUI();
 		else {
@@ -474,16 +488,78 @@ library.view = library.view || {};
 				self.setGroupUI();
 		}
 		
+		if ( state.isHidden )
+			self.handleHidden( state );
+		
 		// only focus input if desktop
 		if ( 'DESKTOP' == window.View.deviceType ) {
 			self.input.focus();
 		}
 		
-		self.conn.ready();
+		window.View.ready();
+		window.View.showLoading( false );
 		self.sendChatEvent({
 			type : 'log',
 			data : null,
 		});
+	}
+	
+	ns.Presence.prototype.setAtParsing = function( atStrings ) {
+		const self = this;
+		const mentions = atStrings || [];
+		const mentionConf = {
+			atStrings : atStrings,
+		};
+		
+		if ( self.mentionPId )
+			self.parser.update( self.mentionPId, mentionConf );
+		else
+			mentionConf.cssKlass = 'Action';
+		
+		let names = self.users.getUserNames( self.userId );
+		let groups = self.users.getGroupNames();
+		let ats = names.concat( groups );
+		ats = ats.filter( a => !mentions.some( u => u === a ));
+		const atConf = {
+			atStrings : ats,
+		};
+		if ( self.atPId )
+			self.parser.update( self.atPId, atConf );
+		else
+			atConf.cssKlass = 'ActionText';
+		
+		if ( null == self.mentionPId )
+			self.mentionPId = self.parser.use( 'AtThings', mentionConf, true );
+		if ( null == self.atPId )
+			self.atPId = self.parser.use( 'AtThings', atConf, true );
+	}
+	
+	ns.Presence.prototype.handleHidden = function( state ) {
+		const self = this;
+		self.isDisabled = state.isDisabled;
+		const live = document.getElementById( 'live-status-container' );
+		const actions = document.getElementById( 'room-actions' );
+		const foot = document.getElementById( 'foot' );
+		hide( live );
+		hide( actions );
+		hide( foot );
+		
+		// top info
+		const elDisabled = hello.template.getElement( 'contact-disabled-tmpl', {});
+		const title = document.getElementById( self.titleId );
+		title.appendChild( elDisabled );
+		
+		// input replacement
+		const elNoReply = hello.template.getElement( 'input-disabled-tmpl', {});
+		const conference = document.getElementById( 'conference' );
+		conference.appendChild( elNoReply );
+		
+		function hide( el ) {
+			if ( !el )
+				return;
+			
+			el.classList.toggle( 'hidden', true );
+		}
 	}
 	
 	ns.Presence.prototype.setPrivateUI = function() {
@@ -682,13 +758,19 @@ library.view = library.view || {};
 		if ( !uid )
 			return;
 		
-		const state = 'typing';
-		// 'set-typing' or 'clear-typing'
-		let add = false;
-		if ( 'set-typing' === event.state.type )
-			add = true;
+		if ( !event.state )
+			return;
 		
-		self.users.setState( uid, state, add );
+		const eType = event.state.type;
+		const state = 'typing';
+		let isTyping = null;
+		// 'set-typing' or 'clear-typing'
+		if ( 'set-typing' === eType )
+			isTyping = true;
+		if ( 'clear-typing' === eType )
+			isTyping = false;
+		
+		self.users.setState( uid, state, isTyping );
 	}
 	
 	ns.Presence.prototype.handleLive = function( event ) {
@@ -721,6 +803,11 @@ library.view = library.view || {};
 		nameEl.textContent = title;
 	}
 	
+	ns.Presence.prototype.updateAtStrings = function( update ) {
+		const self = this;
+		self.setAtParsing( update.atStrings );
+	}
+	
 	ns.Presence.prototype.handleIdUpdate = function( update ) {
 		const self = this;
 		self.users.updateIdentity( update );
@@ -728,24 +815,230 @@ library.view = library.view || {};
 	
 	// things
 	
-	ns.Presence.prototype.checkAutoComplete = function( e ) {
+	ns.Presence.prototype.handleInputChange = function( event ) {
 		const self = this;
-		//console.log( 'checkAutoComplete - NYI', e );
-		return;
-		
-		var key = e.code || e.key;
-		if ( 'Tab' !== key )
-			return;
-		
-		if (
-			e.shiftKey ||
-			e.ctrlKey ||
-			e.altKey ||
-			e.repeat
-		) {
+		const str = event.string;
+		const lastChar = str[ event.caretPos -1 ];
+		if ( !!self.inputMode && !str ) {
+			self.unsetMode();
 			return;
 		}
 		
+		if ( 'notify' === self.inputMode ) {
+			const at = self.getAtStr();
+			if ( at )
+				updateNotify( at.str );
+			else
+				self.unsetMode();
+			
+			return;
+		}
+		
+		if ( '@' === lastChar ) {
+			const at = self.getAtStr();
+			showNotify( at.str );
+			return;
+		}
+		
+		/*
+		const at = self.getAtStr();
+		if ( at ) {
+			showNotify( at.str );
+			return;
+		}
+		*/
+		
+		if ( str.length === 1 && '/' === lastChar ) {
+			showCommand();
+			return;
+		}
+		
+		function showNotify( str ) {
+			self.inputMode = 'notify';
+			let names = self.users.getUserNames( self.userId );
+			if ( !self.isPrivate ) {
+				//
+				names.unshift( 'everyone' );
+				
+				//
+				const groups = self.users.getGroupNames();
+				if ( groups && groups.length )
+					names = names.concat( groups );
+			}
+			
+			self.notify.show( names, str );
+		}
+		
+		function updateNotify( filter ) {
+			self.notify.update( filter );
+		}
+		
+		function showCommand( str ) {
+			self.inputMode = 'command';
+		}
+	}
+	
+	ns.Presence.prototype.unsetMode = function() {
+		const self = this;
+		if ( 'notify' === self.inputMode ) {
+			self.notify.hide();
+		}
+		
+		self.inputMode = '';
+	}
+	
+	ns.Presence.prototype.handleInputTab = function( e ) {
+		const self = this;
+		if ( '' === self.inputMode )
+			return false;
+		
+		if ( 'notify' === self.inputMode )
+			return self.tabCompleteNotify( e );
+		
+	}
+	
+	ns.Presence.prototype.tabCompleteNotify = function( e ) {
+		const self = this;
+		const at = self.getAtStr();
+		if ( !at )
+			return false;
+		
+		e.preventDefault();
+		e.stopPropagation();
+		return self.expandAtString( at, ' ' );
+	}
+	
+	ns.Presence.prototype.handleNotifyAdd = function( str ) {
+		const self = this;
+		const at = self.getAtStr();
+		if ( null == at )
+			return;
+		
+		at.str = str;
+		self.expandAtString( at, ' ' );
+	}
+	
+	ns.Presence.prototype.handleInputArrow = function( direction ) {
+		const self = this;
+		if ( '' == self.inputMode )
+			return false;
+		
+		if ( 'notify' == self.inputMode )
+			return self.selectInNotify( direction );
+	}
+	
+	ns.Presence.prototype.selectInNotify = function( direction ) {
+		const self = this;
+		return self.notify.scrollItems( direction );
+	}
+	
+	ns.Presence.prototype.handleInputEnter = function( e ) {
+		const self = this;
+		if ( 'notify' == self.inputMode ) {
+			const at = self.getAtStr();
+			if ( !at ) {
+				self.unsetMode();
+				return false;
+			}
+			
+			const str = self.notify.selectItem(); 
+			if ( !str )
+				return false;
+			
+			at.str = str;
+			self.expandAtString( at, ' ' );
+			return true;
+		}
+		
+		return false;
+	}
+	
+	ns.Presence.prototype.expandAtString = function( at, postfix ) {
+		const self = this;
+		const atStr = at.str;
+		const current = at.input;
+		const start = current.slice( 0, at.position );
+		const end = current.slice( at.end );
+		const name = self.notify.getName( atStr );
+		if ( !name )
+			return false;
+		
+		let post = '';
+		if ( null != postfix )
+			post = postfix;
+		
+		const replacement = start
+			+ '@'
+			+ name
+			+ post
+			+ end;
+		
+		self.unsetMode();
+		self.input.setValue( replacement );
+		self.input.focus();
+	}
+	
+	ns.Presence.prototype.getAtStr = function( offset ) {
+		const self = this;
+		const current = self.input.getValue();
+		let cPos = self.input.getCursorPos();
+		if ( null != offset )
+			cPos = cPos + offset;
+		
+		let i = cPos || current.length;
+		let aPos = null;
+		let aEnd = i;
+		i = i - 1;
+		while(( null == aPos ) && ( 0 <= i )) {
+			const c = current[ i ];
+			if ( '@' === c )
+				aPos = i;
+			
+			--i;
+		}
+		
+		if ( null == aPos )
+			return null;
+		
+		const atStart = current.slice( aPos, aEnd );
+		const after = current.slice( aEnd );
+		const post = after.split( ' ' )[ 0 ];
+		let atStr = null;
+		if ( post && post.length )
+			atStr = atStart + post;
+		else
+			atStr = atStart;
+		
+		const at = {
+			position : aPos,
+			start    : aPos,
+			end      : aEnd,
+			str      : atStr,
+			input    : current,
+			cursor   : cPos,
+		};
+		return at;
+	}
+	
+	ns.Presence.prototype.handleInputState = function( state ) {
+		const self = this;
+		const e = {
+			type : 'state',
+			data : state,
+		};
+		self.sendChatEvent( e );
+	}
+	
+	ns.Presence.prototype.handleInputSubmit = function( message ) {
+		const self = this;
+		self.inputHistory.add( message );
+		const msg = {
+			type : 'msg',
+			data : {
+				message : message,
+			},
+		};
+		self.sendChatEvent( msg );
 	}
 	
 	ns.Presence.prototype.sendChatEvent = function( event ) {
@@ -771,7 +1064,6 @@ library.view = library.view || {};
 	}
 	
 })( library.view );
-
 
 //
 (function( ns, undefined ) {
@@ -951,6 +1243,53 @@ library.view = library.view || {};
 		return self.getUserCssKlass( clientId );
 	}
 	
+	ns.UserWorkCtrl.prototype.getUserNames = function( excludeId ) {
+		const self = this;
+		const allIds = {};
+		self.userIds.forEach( uId => {
+			allIds[ uId ] = true;
+		});
+			
+		self.workIds.forEach( wId => {
+			const worg = self.members[ wId ];
+			const uIds = Object.keys( worg );
+			uIds.forEach( uId => {
+				allIds[ uId ] = true;
+			});
+		});
+		
+		if ( excludeId )
+			delete allIds[ excludeId ];
+		
+		const ids = Object.keys( allIds );
+		const names = ids.map( uId => {
+			const id = self.identities[ uId ];
+			return id.name;
+		});
+		
+		names.sort();
+		return names;
+	}
+	
+	ns.UserWorkCtrl.prototype.getGroupNames = function() {
+		const self = this;
+		const all = [];
+		all.push( self.workId );
+		self.workIds.forEach( wId => {
+			if ( 'all_groups' == wId )
+				return;
+			
+			all.push( wId );
+		});
+		
+		const names = all.map( gId => {
+			const grp = self.groupsAvailable[ gId ];
+			return grp.name;
+		});
+		
+		return names;
+	}
+	
 	// Private
 	
 	ns.UserWorkCtrl.prototype.init = function( workgroups, users, ids, room ) {
@@ -1075,7 +1414,7 @@ library.view = library.view || {};
 		});
 		
 		function setGAvailable( gId ) {
-			group = groups[ gId ];
+			const group = groups[ gId ];
 			self.groupsAvailable[ gId ] = group;
 		}
 	}
@@ -1545,23 +1884,17 @@ library.view = library.view || {};
 			function setNames( worg, targets ) {
 				const wId = worg.clientId;
 				targets.forEach( uId => {
-					let user = self.users.getId( uId );
-					/*
-					if ( wId === self.workgroupId )
-						user = 
-					else
-						user = self.users.getMember( wId, uId );
-					
-					*/
+					const user = self.users.getId( uId );
+					let uName = '';
 					if ( !user ) {
 						console.log( 'setNames - no user for', {
 							uid : uId,
 							w   : worg,
 						});
-						return;
-					}
+					} else
+						uName = user.name;
 					
-					const name = wName( worg ) + '/' + user.name;
+					const name = wName( worg ) + '/' + uName;
 					targetNames.push( name );
 				});
 			}

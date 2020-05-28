@@ -51,6 +51,14 @@ library.contact = library.contact || {};
 	
 	// Public
 	
+	ns.Contact.prototype.show = function() {
+		const self = this;
+		if ( self.chatView )
+			self.chatView.show();
+		else
+			self.openChat();
+	}
+	
 	ns.Contact.prototype.handleEvent = function( event ) {
 		const self = this;
 		if ( !self.conn )
@@ -141,8 +149,8 @@ library.contact = library.contact || {};
 	
 	ns.Contact.prototype.doMessageIntercept = function( data ) {
 		const self = this;
-		var intercept = self.checkIntercept( data.message );
-		var didIntercept = false;
+		const intercept = self.checkIntercept( data.message );
+		let didIntercept = false;
 		if ( intercept ) {
 			didIntercept = self.handleIntercept( data, intercept );
 		}
@@ -652,11 +660,17 @@ library.contact = library.contact || {};
 		conf.roomId = self.clientId;
 		conf.roomName = self.identity.name;
 		conf.isPrivate = self.isPrivate || false;
+		conf.isTempRoom = !self.persistent;
 		conf.guestAvatar = self.guestAvatar;
 		if ( self.settings.isStream )
 			conf.isStream = true;
 		
-		self.live = hello.rtc.createSession( conf, liveToServer, onClose );
+		self.live = hello.rtc.createSession(
+			conf,
+			liveToServer,
+			onClose
+		);
+		
 		if ( !self.live ) {
 			console.log( 'P.joinLive - live was not created..', self );
 			return; // session wasnt created, because :reasons:
@@ -698,6 +712,7 @@ library.contact = library.contact || {};
 				type : type,
 				data : data,
 			};
+			console.log( 'xliveToServer', event );
 			self.liveToServer( event );
 		}
 	}
@@ -705,11 +720,11 @@ library.contact = library.contact || {};
 	ns.PresenceRoom.prototype.getInviteToken = function( type, callback ) {
 		const self = this;
 		type = type || 'private';
-		var reqId = null;
+		let reqId = null;
 		if ( callback )
 			reqId = self.setRequest( callback )
 		
-		var getInv = {
+		const getInv = {
 			type : type,
 			data : {
 				reqId : reqId,
@@ -931,7 +946,6 @@ library.contact = library.contact || {};
 			.catch( settBoop );
 		
 		function settBack( settings ) {
-			console.log( 'PresenceRoom.loadSettings - settings', settings );
 			self.showSettings( settings );
 		}
 		
@@ -981,7 +995,7 @@ library.contact = library.contact || {};
 		self.setupLive( permissions );
 	}
 	
-	ns.PresenceRoom.prototype.openChat = function() {
+	ns.PresenceRoom.prototype.openChat = function( preView ) {
 		const self = this;
 		if ( self.chatView ) {
 			self.chatView.show();
@@ -989,7 +1003,9 @@ library.contact = library.contact || {};
 		}
 		
 		if ( !self.initialized ) {
-			self.openChatPending = true;
+			self.openChatPending = {
+				view : preView || null,
+			};
 			return;
 		}
 		
@@ -1008,21 +1024,29 @@ library.contact = library.contact || {};
 			identities  : self.identities,
 			workgroups  : self.workgroups,
 			onlineList  : self.onlineList,
+			atStrings   : self.atStrings,
 			ownerId     : self.ownerId,
 			userId      : self.userId,
 		};
 		
-		self.chatView = new library.view.PresenceChat(
-			initData,
-			eventSink,
-			onClose
-		);
+		if ( preView ) {
+			self.chatView = preView;
+			preView.updateState( initData );
+		}
+		else {
+			self.chatView = new library.view.PresenceChat(
+				initData,
+				self.isPrivate
+			);
+		}
 		
 		self.chatView.on( 'chat', e => self.sendChatEvent( e ));
 		self.chatView.on( 'live', goLive );
 		self.chatView.on( 'contact-open', e => self.handleContactOpen( e ));
 		self.chatView.on( 'invite-show', e => self.showInviter( e ));
+		//self.chatView.on( 'highlight', e => self.handleHighlight( e ));
 		self.chatView.on( 'close-back', e => self.handleCloseBack( e ));
+		self.chatView.on( 'close', e => self.closeChat());
 		
 		function eventSink( e ) { console.log( 'unhandled chat view event', e ); }
 		function onClose( e ) {
@@ -1111,15 +1135,19 @@ library.contact = library.contact || {};
 			self.send( inv );
 		}
 		
-		function isOnline( cId ) {
-			console.log( 'isOnline', cId );
-			return cId.isOnline;
+		function isOnline( id ) {
+			return id.isOnline;
 		}
 		
 		function notInRoom( cId ) {
 			const inRoom = self.userIds.some( uId => uId === cId.clientId );
 			return !inRoom;
 		}
+	}
+	
+	ns.PresenceRoom.prototype.handleHighlight = function( e ) {
+		const self = this;
+		hello.playMsgAlert();
 	}
 	
 	ns.PresenceRoom.prototype.handleCloseBack = function( e ) {
@@ -1187,9 +1215,11 @@ library.contact = library.contact || {};
 				},
 			};
 			self.toView( viewUpdate );
+			
 			self.updateViewUsers();
 			self.updateIdentities();
 			self.updateRelation( state.relation );
+			self.updateAtStrings();
 			
 			self.initialized = true;
 			// update main view with # of peers in a live session
@@ -1215,8 +1245,9 @@ library.contact = library.contact || {};
 			}
 			
 			if ( self.openChatPending ) {
-				self.openChatPending = false;
-				self.openChat();
+				const pend = self.openChatPending;
+				self.openChatPending = null;
+				self.openChat( pend.view );
 			}
 			
 			self.updateActive();
@@ -1254,6 +1285,107 @@ library.contact = library.contact || {};
 		self.toView( rel );
 	}
 	
+	ns.PresenceRoom.prototype.updateAtStrings = function() {
+		const self = this;
+		const id = self.idc.read( self.userId );
+		if ( !id ) {
+			console.log( 'updateAtString - could not find user', self );
+			self.atStrings = null;
+			return;
+		}
+		
+		const uId = id.clientId;
+		const name = id.name;
+		const nameChecks = self.atStringsFromName( name );
+		const groupChecks = self.atStringsFromGroups( uId );
+		
+		let tests = null;
+		if ( groupChecks )
+			tests = nameChecks.concat( groupChecks );
+		else
+			tests = nameChecks;
+		
+		tests.push( 'all' );
+		tests.push( 'everyone' );
+		
+		self.atStrings = tests;
+		if ( self.mentionPId ) {
+			const update = {
+				atStrings : self.atStrings
+			};
+			self.parser.update( self.mentionPId, update );
+			if ( !self.chatView )
+				return;
+			
+			self.chatView.send({
+				type : 'at-strings',
+				data : update,
+			});
+			return;
+		}
+		
+		const mentionConf = {
+			atStrings : self.atStrings,
+			onlyEmit  : true,
+		};
+		self.parser = new library.component.parse.Parser();
+		self.mentionPId = self.parser.use( 'AtThings', mentionConf, true );
+		self.parser.on( 'mention', atted );
+		
+		function atted( str ) {
+			self.handleHighlight( str );
+		}
+	}
+	
+	ns.PresenceRoom.prototype.atStringsFromGroups = function( uId ) {
+		const self = this;
+		const user = self.users[ uId ];
+		if ( !user )
+			return null;
+		
+		const memberOf = [];
+		if ( !user.workgroups || !user.workgroups.length )
+			return null;
+		
+		const uwgs = user.workgroups
+		const wgs = self.workgroups;
+		if ( !wgs )
+			return null;
+		
+		let relevant = [];
+		if ( wgs.assigned && wgs.assigned.length ) {
+			const ass = wgs.assigned.map( a => a.clientId );
+			relevant = relevant.concat( ass );
+		}
+		
+		if ( wgs.superId )
+			relevant.push( wgs.superId );
+		
+		if ( wgs.workId )
+			relevant.push( wgs.workId );
+		
+		if ( !relevant.length )
+			return null;
+		
+		relevant = relevant.filter( rId => {
+			return uwgs.some( uwId => uwId === rId );
+		});
+		
+		const names = relevant.map( rwId => {
+			const wg = wgs.available[ rwId ];
+			return wg.name;
+		});
+		
+		return names;
+	}
+	
+	ns.PresenceRoom.prototype.atStringsFromName = function( name ) {
+		const self = this;
+		const tests = [];
+		tests.push( name );
+		return tests;
+	}
+	
 	ns.PresenceRoom.prototype.setLastMessage = function() {
 		const self = this;
 		if ( !self.lastMessage )
@@ -1271,6 +1403,7 @@ library.contact = library.contact || {};
 	
 	ns.PresenceRoom.prototype.handlePersistent = function( event ) {
 		const self = this;
+		self.persistent = event.persistent;
 		const persistent = {
 			type : 'persistent',
 			data : event,
@@ -1285,7 +1418,7 @@ library.contact = library.contact || {};
 	
 	ns.PresenceRoom.prototype.setSettings = function( settings ) {
 		const self = this;
-		console.log( 'setSettings', settings );
+		console.log( 'PresenceRoom.setSettings', settings );
 		const keys = Object.keys( settings );
 		keys.forEach( k => {
 			const value = settings[ k ];
@@ -1295,10 +1428,6 @@ library.contact = library.contact || {};
 	
 	ns.PresenceRoom.prototype.showSettings = function( event ) {
 		const self = this;
-		console.log( 'showSettings', {
-			event : event,
-			expect : self.expectSettings,
-		});
 		const settings = event;
 		if ( !self.expectSettings )
 			return;
@@ -1316,13 +1445,12 @@ library.contact = library.contact || {};
 		}
 		else
 			showView( settings );
-			
+		
 		function authIdsBack( list ) {
 			const ids = {};
 			list.forEach( id => {
 				ids[ id.clientId ] = id;
 			});
-			console.log( 'authIdsBack', ids );
 			settings.authorized = {
 				authed : settings.authorized,
 				ids    : ids,
@@ -1367,7 +1495,7 @@ library.contact = library.contact || {};
 	
 	ns.PresenceRoom.prototype.handleSettingUpdate = function( event ) {
 		const self = this;
-		console.log( 'handleSettingsUpdate', event );
+		console.log( 'PresenceRoom.handleSettingUpdate', event );
 		if ( !self.settings )
 			return;
 		
@@ -1495,6 +1623,8 @@ library.contact = library.contact || {};
 					type : 'workgroups-assigned',
 					data : self.workgroups.assigned,
 				});
+			
+			self.updateAtStrings();
 		}
 		
 		function add( worg ) {
@@ -1521,6 +1651,8 @@ library.contact = library.contact || {};
 				data : subIds,
 			};
 			self.chatView.send( update );
+			
+			self.updateAtStrings();
 		}
 	}
 	
@@ -1595,10 +1727,17 @@ library.contact = library.contact || {};
 	
 	ns.PresenceRoom.prototype.handleInvite = function( event ) {
 		const self = this;
+		console.log( 'handleInvite', event );
 		if ( 'revoke' === event.type )
 			send( event );
 		else
-			event = self.buildInvites( event, invitesBack );
+			self.buildInvites( event )
+				.then( invitesBack )
+				.catch( boop );
+		
+		function boop( e ) {
+			console.log( 'handleInvite.buildInvites boop', e );
+		}
 		
 		function invitesBack( event ) {
 			if ( event.data.reqId ) {
@@ -1712,6 +1851,7 @@ library.contact = library.contact || {};
 	
 	ns.PresenceRoom.prototype.handleLive = function( event ) {
 		const self = this;
+		console.log( 'xlive handleLive', event );
 		if ( 'open' === event.type ) {
 			if ( !self.live )
 				return;
@@ -1777,7 +1917,8 @@ library.contact = library.contact || {};
 			data : event,
 		}
 		
-		if (( 'msg' === event.type ) 
+		if (
+			( 'msg' === event.type ) 
 			|| ( 'work-msg' === event.type )
 		) {
 			self.onMessage( event.data );
@@ -1801,10 +1942,15 @@ library.contact = library.contact || {};
 			};
 			
 			let silent = false;
-			if ( self.valueAddedRoom )
+			if ( self.valueAddedRoom ) // workrooms added as subrooms
 				silent = true;
 			
 			self.onChatMessage( event, silent );
+			if ( silent )
+				return;
+			
+			if ( !!from )
+				self.parser.work( msg.message );
 			
 			/*
 			self.recentMessage( msg.message, from, msg.time );
@@ -1876,106 +2022,127 @@ library.contact = library.contact || {};
 		callback( data );
 	}
 	
-	ns.PresenceRoom.prototype.buildInvites = function( event, callback ) {
+	ns.PresenceRoom.prototype.buildInvites = function( event ) {
 		const self = this;
-		if ( 'state' === event.type )
-			parseState( event.data, allDone );
-		else
-			build( event.data, buildBack );
+		return new Promise(( resolve, reject ) => {
+			if ( 'state' === event.type )
+				parseState( event.data )
+					.then( parseDone )
+					.catch( buildBoop );
+			else
+				build( event.data )
+					.then( buildBack )
+					.catch( buildBoop );
+			
+			function buildBoop( err ) {
+				console.log( 'PresenecRoom.buildInvites - err', err );
+				reject( err );
+			}
+			
+			function buildBack( conf ) {
+				event.data = conf;
+				resolve( event );
+			}
+			
+			function parseDone( conf ) {
+				event.data = conf;
+				resolve( event );
+			}
+			
+		});
 		
-		function buildBack( conf ) {
-			event.data = conf;
-			callback( event );
-		}
-		
-		function allDone( conf ) {
-			event.data = conf;
-			callback( event );
-		}
-		
-		function build( conf, callback ) {
-			if ( 'string' === typeof( conf ))
-				conf = { token : conf };
+		function build( conf ) {
+			return new Promise(( resolve, reject ) => {
+				if ( 'string' === typeof( conf ))
+					conf = { token : conf };
+					
+				const data = {
+					type   : 'live',
+					token  : conf.token,
+					host   : conf.host,
+					roomId : self.clientId,
+					v      : 2,
+				};
+				console.log( 'invite data', data );
+				const bundle = {
+					type : 'live-invite',
+					data : data,
+				};
 				
-			const data = {
-				type   : 'live',
-				token  : conf.token,
-				host   : conf.host,
-				roomId : self.clientId,
-				v      : 2,
-			};
-			const bundle = {
-				type : 'live-invite',
-				data : data,
-			};
-			
-			conf.link = hello.intercept.buildURL( bundle, false, 'Join me live' );
-			conf.link.url += '&theme=borderless';
-			
-			conf.data = hello.intercept.buildJSON( bundle );
-			conf.data = conf.data.prefix + conf.data.url;
-			
-			friend.tinyURL.compress( conf.link.url )
-				.then( tinyBack )
-				.catch( tinyErr );
-			
-			//
-			function tinyBack( res ) {
-				done( res.url );
-			}
-			
-			function tinyErr( err ) {
-				console.log( 'tinyErr', err );
-				done();
-			}
-			
-			function done( url ) {
-				if ( !url )
-					conf.link = conf.link.prefix + conf.link.url;
-				else
-					conf.link = conf.link.prefix + url;
+				conf.link = hello.intercept.buildURL( bundle, false, 'i18n_join_me_live' );
+				conf.link.url += '&theme=borderless';
 				
-				callback( conf );
-			}
+				conf.data = hello.intercept.buildJSON( bundle );
+				conf.data = conf.data.prefix + conf.data.url;
+				
+				friend.tinyURL.compress( conf.link.url )
+					.then( tinyBack )
+					.catch( tinyErr );
+				
+				//
+				function tinyBack( res ) {
+					done( res.url );
+				}
+				
+				function tinyErr( err ) {
+					console.log( 'tinyErr', err );
+					reject();
+				}
+				
+				function done( url ) {
+					if ( !url )
+						conf.message = conf.link.prefix + conf.link.url;
+					else {
+						conf.link = url;
+						conf.message = conf.link.prefix + url;
+					}
+					
+					resolve( conf );
+				}
+			});
 		}
 		
 		function parseState( state, callback ) {
-			if ( state.publicToken )
-				build({
-					token : state.publicToken,
-					host : state.host,
-				}, pubBack );
-			
-			let privs = [];
-			state.privateTokens
-				.map( buildPriv );
-			
-			return state;
-			
-			function buildPriv( token ) {
-				return build({
-					token : token,
-					host : state.host,
-				}, privBack );
-			}
-			
-			function pubBack( conf ) {
-				state.publicToken = conf;
-				checkDone();
-			}
-			
-			function privBack( conf ) {
-				privs.push( conf );
-				checkDone();
-			}
-			
-			function checkDone() {
-				if ( state.privateTokens.length !== privs.length )
-					return;
+			return new Promise(( resolve, reject ) => {
+				Promise.all( state.privateTokens.map( buildPriv ))
+					.then( privsDone )
+					.catch( err );
 				
-				state.privateTokens = privs;
-				callback( state );
-			}
+				function privsDone( privs ) {
+					state.privateTokens = privs;
+					if ( state.publicToken )
+						buildPub();
+					else
+						resolve( state );
+				}
+				
+				function buildPub() {
+					const conf = {
+						token : state.publicToken,
+						host  : state.host,
+					};
+					const pub = build( conf )
+						.then( pubBack )
+						.catch( err );
+				}
+				
+				function pubBack( conf ) {
+					state.publicToken = conf;
+					resolve( state );
+				}
+				
+				function buildPriv( token ) {
+					const conf = {
+						token : token,
+						host  : state.host,
+					};
+					return build( conf );
+				}
+				
+				function err( err ) {
+					console.log( 'eer', err );
+				}
+			});
 		}
 	}
 	
@@ -2093,6 +2260,7 @@ library.contact = library.contact || {};
 	
 	ns.PresenceRoom.prototype.liveToServer = function( event ) {
 		const self = this;
+		console.log( 'liveToServer', event );
 		var wrap = {
 			type : 'live',
 			data : event,
@@ -2158,6 +2326,92 @@ library.contact = library.contact || {};
 		}
 	}
 	
+})( library.contact );
+
+//
+// PRESENCEHIDDEN
+(function( ns, undefined ) {
+	ns.PresenceHidden = function( conf ) {
+		const self = this;
+		self.type = 'presence';
+		self.data = conf.contact.identity;
+		self.idc = conf.idCache;
+		self.user = conf.user;
+		self.userId = conf.userId;
+		
+		ns.Contact.call( self, conf );
+		
+		self.contactId = null;
+		self.isPrivate = true;
+		self.isHidden = true;
+		self.isDisabled = null;
+		self.settings = null;
+		self.identities = {};
+		self.onlineList = [];
+		self.users = {};
+		
+		self.init( conf.contact );
+	}
+	
+	ns.PresenceHidden.prototype = Object.create( ns.PresenceRoom.prototype );
+	
+	// Public
+	
+	// Private
+	
+	ns.PresenceHidden.prototype.init = function( contact ) {
+		const self = this;
+		self.identity = contact.identity;
+		self.identities[ self.user.clientId ] = self.user;
+		self.identities[ self.identity.clientId ] = self.identity;
+		self.contactId = self.identity.clientId;
+		self.isDisabled = !!self.identity.fIsDisabled;
+		
+		self.conn.on( 'chat', e => {
+			const chat = {
+				type : 'chat',
+				data : e,
+			};
+			self.toChat( chat );
+		});
+		
+		self.openChat();
+	}
+	
+	ns.PresenceHidden.prototype.openChat = function() {
+		const self = this;
+		const initData = {
+			isPrivate   : true,
+			persistent  : true,
+			isHidden    : true,
+			isDisabled  : self.isDisabled,
+			roomName    : self.identity.name,
+			users       : self.identities,
+			identities  : self.identities,
+			workgroups  : [],
+			onlineList  : [],
+			peers       : [],
+			ownerId     : self.ownerId,
+			userId      : self.userId,
+			contactId   : self.contactId,
+		};
+		
+		self.chatView = new library.view.PresenceChat( initData );
+		self.chatView.on( 'close', onClose );
+		self.chatView.on( 'chat', onChat );
+		
+		function onClose() {
+			self.emit( 'close' );
+		}
+		
+		function onChat( e ) {
+			const chat = {
+				type : 'chat',
+				data : e,
+			};
+			self.send( chat );
+		}
+	}
 })( library.contact );
 
 //
@@ -2304,6 +2558,7 @@ library.contact = library.contact || {};
 			( e ) => self.handleCallNotification( e ));
 		
 		self.isOpen = false;
+		self.updateAtStrings();
 		
 		function open( e ) { self.handleOpen( e ); }
 		function init( e ) { self.handleInitializeContact( e ); }
@@ -2406,16 +2661,62 @@ library.contact = library.contact || {};
 		*/
 	}
 	
-	ns.PresenceContact.prototype.openChat = function() {
+	ns.PresenceContact.prototype.updateAtStrings = function() {
 		const self = this;
-		if ( !self.isOpen ) {
-			self.openChatPending = true;
-			self.open();
-		} else
-			self.openChatView();
+		self.idc.get( self.userId )
+			.then( uBack )
+			.catch( uErr );
+		
+		function uErr( err ) {
+			console.log( 'updateAtStrings - failed to get id', self );
+		}
+		
+		function uBack( user ) {
+			if ( !user )
+				return;
+			
+			const name = user.name;
+			const tests = self.atStringsFromName( name );
+			self.atStrings = tests;
+			if ( self.parser )
+				self.parser.close();
+			
+			const mentionConf = {
+				atStrings : self.atStrings,
+				onlyEmit  : true,
+			};
+			self.parser = new library.component.parse.Parser();
+			self.parser.use( 'AtThings', mentionConf );
+			self.parser.on( 'mention', atted );
+			
+		}
+		
+		function atted( str ) {
+			self.handleHighlight( str );
+		}
 	}
 	
-	ns.PresenceContact.prototype.openChatView = function() {
+	ns.PresenceContact.prototype.handleHighlight = function( e ) {
+		const self = this;
+		hello.playMsgAlert();
+	}
+	
+	ns.PresenceContact.prototype.openChat = function( preView ) {
+		const self = this;
+		if ( !self.isOpen ) {
+			self.openChatPending = {
+				view : preView || null,
+			};
+			self.open();
+		} else {
+			if ( !preView && self.openChatPending )
+				preView = self.openChatPending.view;
+			
+			self.openChatView( preView );
+		}
+	}
+	
+	ns.PresenceContact.prototype.openChatView = function( preView ) {
 		const self = this;
 		self.openChatPending = false;
 		if ( self.chatView ) {
@@ -2437,19 +2738,22 @@ library.contact = library.contact || {};
 			ownerId     : self.ownerId,
 			userId      : self.userId,
 			contactId   : self.contactId,
+			atStrings   : self.atStrings,
 		};
-		self.chatView = new library.view.PresenceChat(
-			initData,
-			eventSink,
-			onClose
-		);
 		
+		if ( preView ) {
+			self.chatView = preView;
+			self.chatView.updateState( initData );
+		} else
+			self.chatView = new library.view.PresenceChat( initData );
+		
+		self.chatView.on( 'close', onClose );
 		self.chatView.on( 'chat', chat );
 		self.chatView.on( 'live', goLive );
+		self.chatView.on( 'close-back', e => self.handleCloseBack( e ));
 		
 		self.updateActive();
 		
-		function eventSink( e ) { console.log( 'unhandled chat view event', e ); }
 		function onClose( e ) {
 			self.closeChat();
 		}
@@ -2493,6 +2797,10 @@ library.contact = library.contact || {};
 			};
 			
 			self.onChatMessage( msg );
+			if ( !from )
+				return;
+			
+			self.parser.work( event.message );
 		}
 	}
 	

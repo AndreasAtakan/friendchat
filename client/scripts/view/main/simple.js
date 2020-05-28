@@ -140,7 +140,7 @@ var hello = window.hello || {};
 		);
 		
 		// Check if we *want* the inapp menu
-		if ( settings.inAppMenu ) {
+		if ( settings && settings.inAppMenu ) {
 			self.enableInAppMenu();
 		}
 		
@@ -194,57 +194,14 @@ var hello = window.hello || {};
 			el.classList.toggle( 'active', !!show );
 			btnEl.classList.toggle( 'active', !!show );
 		}
-		
-		/*
-		var btabs = document.getElementById( 'main-tabs' );
-		var eles = document.getElementsByTagName( '*' );
-		var tabs = [];
-		var pages = [];
-		for( var a = 0; a < eles.length; a++ ) {
-			if( eles[a].classList ) {
-				if( eles[a].classList.contains( 'page-item' ) ) {
-					pages.push( eles[a] );
-				}
-				if( eles[a].classList.contains( 'tab-item' ) ) {
-					tabs.push( eles[a] );
-				}
-			}
-		}
-		
-		function addTab( tab, pages, index ) {
-			tab.onclick = function() {
-				if ( self.search )
-					self.search.hide();
-				
-				pages[ index ].classList.add( 'active' );
-				this.classList.add( 'active' );
-				for( var b = 0; b < pages.length; b++ ) {
-					if( b != index ) {
-						pages[ b ].classList.remove( 'active' );
-						tabs[ b ].classList.remove( 'active' );
-					}
-				}
-			}
-			if( index == 0 )
-				tab.onclick();
-		}
-		for( var a = 0; a < tabs.length; a++ ) {
-			addTab( tabs[a], pages, a );
-		}
-		*/
 	}
 	
 	ns.Main.prototype.enableInAppMenu = function() {
 		const self = this;
 		const menu = document.getElementById( 'menu-btn' );
 		if ( menu )
-			menu.classList.remove( 'hidden' );
-		
-		const head = document.getElementById( 'head' );
-		if ( head )
-			head.classList.remove( 'PaddingRight' );
+			menu.classList.toggle( 'hidden', false );
 	}
-	
 	
 })( library.view );
 
@@ -333,7 +290,7 @@ var hello = window.hello || {};
 		
 		const sId = sess.id;
 		const id = 'sess_' + sId;
-		conf = {
+		const conf = {
 			id    : id,
 			title : sess.conf.roomName,
 		};
@@ -435,16 +392,22 @@ var hello = window.hello || {};
 	ns.Presence.prototype.buildContactsElement = function() {
 		const self = this;
 		const title = self.getTitleString( 'contact' );
-		const tmplId = 'simple-presence-rooms-tmpl';
+		const tmplId = 'simple-presence-contacts-tmpl';
+		self.hiddenId = friendUP.tool.uid( 'able' );
+		self.hiddenItemsId = friendUP.tool.uid( 'able' );
 		const conf = {
-			roomsId      : self.contactsId,
-			title        : title,
-			connStateId  : self.contactsConnState,
-			itemsId      : self.contactItemsId,
+			roomsId       : self.contactsId,
+			title         : title,
+			connStateId   : self.contactsConnState,
+			itemsId       : self.contactItemsId,
+			hiddenId      : self.hiddenId,
+			hiddenItemsId : self.hiddenItemsId,
 		};
 		const el = hello.template.getElement(  tmplId, conf );
 		const cont = document.getElementById( self.containers.contact );
 		cont.appendChild( el );
+		
+		self.bindHidden();
 	}
 	
 	ns.Presence.prototype.initStatus = function() {
@@ -546,6 +509,8 @@ var hello = window.hello || {};
 		self.items = {};
 		self.itemOrder = null;
 		
+		self.loadingDone = false;
+		
 		self.init( containerId );
 	}
 	
@@ -588,10 +553,21 @@ var hello = window.hello || {};
 			items    : {},
 		};
 		const mod = self.modules[ moduleId ];
-		mod.addId = module.on( 'add', itemAdd );
-		mod.removeId = module.on( 'remove', itemRemove );
-		function itemAdd( item ) { self.handleItemAdd( moduleId, item ); }
-		function itemRemove( itemId ) { self.handleItemRemove( moduleId, itemId ); }
+		mod.addId = module.on( 'add', item => self.handleItemAdd( moduleId, item ));
+		mod.removeId = module.on( 'remove', itemId => self.handleItemRemove( moduleId, itemId ));
+		
+		if ( self.loadingDone )
+			return;
+		
+		if ( null != self.loadingTimeout )
+			return;
+		
+		self.loadingTimeout = window.setTimeout( wellWereWaiting, 1000 * 10 );
+		function wellWereWaiting() {
+			self.loadingTimeout = null;
+			self.doneLoading();
+			self.toggleNoRecent();
+		}
 	}
 	
 	ns.Recent.prototype.releaseModule = function( moduleId ) {
@@ -622,9 +598,10 @@ var hello = window.hello || {};
 		container.appendChild( self.el );
 		self.active = document.getElementById( 'recent-active' );
 		self.inactive = document.getElementById( 'recent-inactive' );
-		self.itemOrder = new library.component.ListOrder( 'recent-active' );
+		self.itemOrder = new library.component.ListOrder( 'recent-active', null );
 		
 		self.splash = document.getElementById( 'recent-splash' );
+		//self.waiting = document.getElementById( 'recent-waiting' );
 		self.noRecent = document.getElementById( 'no-recent-convos' );
 		
 		self.welcomeBox = document.getElementById( 'welcome-box' );
@@ -641,11 +618,13 @@ var hello = window.hello || {};
 		else
 			showWelcome();
 		
+		//
 		function closeWelcome() {
 			self.toggleNoRecent();
 		}
 		
 		function showWelcome() {
+			self.doneLoading();
 			if ( !self.welcomeBox )
 				return;
 			
@@ -660,16 +639,32 @@ var hello = window.hello || {};
 			delete self.welcomeBox;
 		}
 		
-		if ( waitingForHistory )
+		if ( waitingForHistory ) {
+			self.isWaiting = true;
+			//self.waiting.classList.toggle( 'hidden', false );
 			return;
+		}
 		
-		if ( !self.noRecent )
-			return;
+		if ( self.isWaiting ) {
+			//self.waiting.classList.toggle( 'hidden', true );
+			self.isWaiting = false;
+			self.doneLoading();
+		}
 		
 		if ( self.active.firstChild )
 			self.noRecent.classList.toggle( 'hidden', true );
 		else
 			self.noRecent.classList.toggle( 'hidden', false );
+	}
+	
+	ns.Recent.prototype.doneLoading = function() {
+		const self = this;
+		if ( null != self.loadingTimeout )
+			window.clearTimeout( self.loadingTimeout );
+		
+		self.loadingDone = true;
+		self.loadingTimeout = null;
+		window.View.showLoading( false );
 	}
 	
 	ns.Recent.prototype.releaseModules = function() {
@@ -726,7 +721,6 @@ var hello = window.hello || {};
 	
 	ns.Recent.prototype.addQuery = function( modId, source ) {
 		const self = this;
-		console.log( 'addQuery', source );
 		const mod = self.modules[ modId ];
 		if ( !mod )
 			return;
@@ -1475,8 +1469,8 @@ var hello = window.hello || {};
 			cssClass    : 'fa-video-camera',
 			statusMap   : {
 				'empty'   : 'Off',
-				'others'  : 'Available',
-				'user'    : 'DangerText',
+				'others'  : '',
+				'user'    : 'Available',
 			},
 		};
 		self.live = new library.component.StatusIndicator( conf );

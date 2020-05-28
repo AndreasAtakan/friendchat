@@ -482,7 +482,11 @@ library.module = library.module || {};
 	
 	ns.BaseModule.prototype.setLocalData = function( data, callback ) {
 		const self = this;
-		api.ApplicationStorage.setItem( self.clientId, data, setBack );
+		api.ApplicationStorage.setItem( self.clientId, data )
+			.then( setBack )
+			.catch( e => {
+				console.log( 'BaseModule.setLocalData - applicationStorage uncaught error', e );
+			});
 		function setBack( result ) {
 			if ( result.success == false ) {
 				var err = result.message || 'error';
@@ -496,7 +500,12 @@ library.module = library.module || {};
 	
 	ns.BaseModule.prototype.getLocalData = function( callback ) {
 		const self = this;
-		api.ApplicationStorage.getItem( self.clientId, getBack );
+		api.ApplicationStorage.getItem( self.clientId )
+			.then( getBack )
+			.catch( e => {
+				console.log( 'BaseModule.getLocalData - applicationStorage uncaught error', e );
+			});
+		
 		function getBack( result ) {
 			if ( !hasData( result.data )) {
 				callback( null );
@@ -518,7 +527,11 @@ library.module = library.module || {};
 	
 	ns.BaseModule.prototype.clearLocalData = function( callback ) {
 		const self = this;
-		api.ApplicationStorage.removeItem( self.clientId, removeBack );
+		api.ApplicationStorage.removeItem( self.clientId )
+			.then( removeBack )
+			.catch( e => {
+				console.log( 'BaseModule.clearLocalData - applicationStorage uncaught error', e );
+			});
 		function removeBack( result ) {
 			if ( !result.success ) {
 				var err = result.message || 'some error';
@@ -559,6 +572,7 @@ library.module = library.module || {};
 		self.type = 'presence';
 		self.roomRequests = {};
 		self.openChatWaiting = [];
+		self.hiddenContacts = {};
 		self.init();
 	}
 	
@@ -746,28 +760,30 @@ library.module = library.module || {};
 		});
 	}
 	
-	ns.Presence.prototype.openChat = function( conf ) {
+	ns.Presence.prototype.openChat = function( conf, view ) {
 		const self = this;
 		if ( !self.initialized ) {
 			console.log( 'Presence.openChat - not initialize, queueueueing' );
-			self.queueEvent( 'openChat', [ conf ] );
+			self.queueEvent( 'openChat', [ conf, view ] );
 			return;
 		}
 		
 		const item = self.getTypeItem( conf.id, conf.type );
 		if ( !item ) {
 			console.log( 'Presence.openChat - chat not found for, queueueueueing', conf );
-			self.openChatWaiting.push( conf.id );
+			conf.view = view || null;
+			self.openChatWaiting.push( conf );
 			return;
 		}
 		
 		if ( !item.openChat ) {
 			console.log( 'Presence.openChat - item not ready' );
-			self.openChatWaiting.push( conf.id );
+			conf.view = view || null;
+			self.openChatWaiting.push( conf );
 			return;
 		}
 		
-		item.openChat();
+		item.openChat( view );
 	}
 	
 	ns.Presence.prototype.goLiveAudio = function( conf ) {
@@ -842,6 +858,8 @@ library.module = library.module || {};
 		self.view.on( 'create-room', createRoom );
 		self.view.on( 'contact', contact );
 		self.view.on( 'invite-response', invResponse );
+		self.view.on( 'load-hidden', e => self.handleLoadHidden( e ));
+		self.view.on( 'open-hidden', e => self.handleOpenHidden( e ));
 		
 		function createRoom( e ) { self.handleCreateRoom( e ); }
 		function contact( e ) { self.handleContactAction( e ); }
@@ -931,27 +949,27 @@ library.module = library.module || {};
 		};
 	}
 	
-	ns.Presence.prototype.serviceCreateRoom = function( event ) {
+	ns.Presence.prototype.serviceGetRoom = function( action, conf ) {
 		const self = this;
-		var reqId = friendUP.tool.uid( 'req' );
-		var session = event.data;
+		const reqId = friendUP.tool.uid( 'req' );
+		const session = conf;
 		self.roomRequests[ reqId ] = {
-			action  : event.type,
+			action  : action,
 			session : session,
 		};
 		
-		var roomConf = {
+		const roomConf = {
 			req    : reqId,
 			invite : session.invite || null,
 			name   : null,
 		}
 		
-		if ( 'create' === event.type ) {
+		if ( 'create' === action ) {
 			self.createRoom( roomConf );
 			return;
 		}
 		
-		if ( 'join' === event.type ) {
+		if ( 'join' === action ) {
 			self.joinRoom( roomConf );
 			return;
 		}
@@ -1184,14 +1202,14 @@ library.module = library.module || {};
 			};
 			self.toView( cAdd );
 			
-			if ( self.checkOpenChatWaiting( cId ))
-				room.openChat();
+			const waitConf = self.checkOpenChatWaiting( cId );
+			if ( waitConf )
+				room.openChat( waitConf.view || null );
 		}
 	}
 	
 	ns.Presence.prototype.handleContactOnline = function( event ) {
 		const self = this;
-		console.log( 'handleContactOnline', event );
 		const clientId = event.clientId;
 		const userState = event.data;
 		const online = {
@@ -1222,16 +1240,17 @@ library.module = library.module || {};
 	
 	ns.Presence.prototype.checkOpenChatWaiting = function( clientId ) {
 		const self = this;
-		let isWaiting = false;
-		self.openChatWaiting = self.openChatWaiting.filter( wId => {
-			if ( wId !== clientId )
+		let conf = false;
+		self.openChatWaiting = self.openChatWaiting.filter( c => {
+			if ( c.id !== clientId )
 				return true; // keep entry
 			
-			isWaiting = true;
+			// found
+			conf = c;
 			return false;
 		});
 		
-		return isWaiting;
+		return conf;
 	}
 	
 	ns.Presence.prototype.handleContactRemove = function( clientId ) {
@@ -1241,6 +1260,7 @@ library.module = library.module || {};
 			return;
 		
 		delete self.contacts[ clientId ];
+		self.contactIds = Object.keys( self.contacts );
 		contact.close();
 		const cAdd = {
 			type : 'contact-remove',
@@ -1307,6 +1327,105 @@ library.module = library.module || {};
 			data : res,
 		};
 		self.toAccount( inv );
+	}
+	
+	ns.Presence.prototype.handleLoadHidden = function() {
+		const self = this;
+		const hiddenLoading = {
+			type : 'hidden-loading',
+			data : Date.now(),
+		};
+		self.toView( hiddenLoading );
+		
+		const loadHidden = {
+			type : 'hidden-list',
+		};
+		self.acc.request( loadHidden )
+			.then( hiddenBack )
+			.catch( loadErr );
+		
+		function loadErr( ex ) {
+			console.log( 'handleLoadHidden - loadErr', ex );
+			showList( null );
+		}
+		
+		function hiddenBack( list ) {
+			showList( list );
+		}
+		
+		function showList( list ) {
+			const hidden = {
+				type : 'hidden-list',
+				data : {
+					hidden : list,
+				},
+			};
+			self.toView( hidden );
+		}
+	}
+	
+	ns.Presence.prototype.handleOpenHidden = function( contactId ) {
+		const self = this;
+		const contact = self.hiddenContacts[ contactId ];
+		if ( true === contact )
+			return;
+		
+		if ( contact ) {
+			contact.show();
+			return;
+		}
+		
+		self.hiddenContacts[ contactId ] = true;
+		
+		const hopen = {
+			type : 'hidden-open',
+			data : contactId,
+		};
+		self.acc.request( hopen )
+			.then( onRes )
+			.catch( onErr );
+		
+		function onErr( err ) {
+			console.log( 'Presence.handleOpenHidden - request err', err );
+			delete self.hiddenContacts[ contactId ];
+			
+		}
+		
+		function onRes( res ) {
+			if ( !res ) {
+				console.log( 'handleOpenHidden - no contact??', res );
+				delete self.hiddenContacts[ contactId ];
+				return;
+			}
+			
+			showHiddenChat( res );
+		}
+		
+		function showHiddenChat( contact ) {
+			const cId = contact.clientId;
+			const conf = {
+				moduleId   : self.clientId,
+				contact    : contact,
+				parentConn : self.acc,
+				parentView : self.parentView,
+				idCache    : self.idc,
+				user       : self.identity,
+				userId     : self.accountId,
+			};
+			
+			room = new library.contact.PresenceHidden( conf );
+			room.once( 'close', onClose );
+			
+			function onClose() {
+				delete self.hiddenContacts[ cId ];
+				const hClose = {
+					type : 'hidden-close',
+					data : cId,
+				};
+				self.acc.send( hClose );
+				room.close();
+			}
+		}
 	}
 	
 	ns.Presence.prototype.setupRooms = function( rooms ) {
@@ -1541,8 +1660,9 @@ library.module = library.module || {};
 		
 		room.on( 'contact', contactEvent );
 		
-		if ( self.checkOpenChatWaiting( cId ))
-			room.openChat();
+		const waitConf = self.checkOpenChatWaiting( cId );
+		if ( waitConf )
+			room.openChat( waitConf.view );
 		
 		return room;
 		
@@ -1564,7 +1684,10 @@ library.module = library.module || {};
 			return;
 		}
 		
-		self.openChatWaiting.push( contactId );
+		const waitConf = {
+			id : contactId,
+		};
+		self.openChatWaiting.push( waitConf );
 		let start = {
 			type : 'start',
 			data : contactId,
@@ -2720,7 +2843,6 @@ library.module = library.module || {};
 				type : 'user-list',
 				data : null,
 			};
-			console.log( 'getUserList', req );
 			self.conn.request( req )
 				.then( reqBack )
 				.catch( reqFail );

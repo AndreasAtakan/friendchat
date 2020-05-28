@@ -2,14 +2,13 @@
 <html>
 	<head>
 		<script src="
-			/webclient/js/utils/events.js;
-			webclient/apps/FriendChat/scripts/component/tool.js;
+			/webclient/apps/FriendChat/scripts/component/tool.js;
+			webclient/apps/FriendChat/scripts/component/common.js;
 			webclient/apps/FriendChat/api/logSock.js;
 			webclient/apps/FriendChat/api/view.js;
-			webclient/apps/FriendChat/scripts/component/parser.js;
-			webclient/apps/FriendChat/scripts/component/drop.js;
-			webclient/apps/FriendChat/scripts/component/common.js;
 			webclient/apps/FriendChat/scripts/component/viewComponent.js;
+			webclient/apps/FriendChat/scripts/component/drop.js;
+			webclient/apps/FriendChat/scripts/component/parser.js;
 			webclient/apps/FriendChat/scripts/view/presence/component.js;
 			webclient/apps/FriendChat/scripts/view/presence/presence.js
 		" type="text/javascript"></script>
@@ -21,7 +20,7 @@
 			webclient/apps/FriendChat/css/presence.css
 		">
 	</head>
-	<body>
+	<body id="hello">
 		
 		<div id="fragments" class="hidden">
 		
@@ -29,9 +28,9 @@
 
 -->
 <script id="body-tmpl" type="text/html">
-<div id="hello" class="conference bar column BackgroundDefault">
+<div id="conference" class="bar column full-height BackgroundDefault">
 	<div id="head" class="BorderBottom fortify group row">
-		<button id="room-back" class="Button IconButton fortify">
+		<button id="room-back" class="Button IconButton fortify hidden">
 			<i class="fa fa-fw fa-chevron-left"></i>
 		</button>
 		<div id="room-title" class="expand">
@@ -145,7 +144,7 @@
 				<i class="fa fa-fw fa-close"></i>
 			</div>
 			<div id="users-title">
-				{i18n_conference_members}
+				{i18n_members}
 			</div>
 		</div>
 		<div id="users-position" class="expand BackgroundHeavy SmoothScrolling">
@@ -188,6 +187,32 @@ contactName,
 </div>
 </script>
 
+<!-- Contacts disabled
+-->
+<script id="contact-disabled-tmpl" type="text/html">
+<div class="user-hidden group row">
+	<div class="hidden-text DangerText fortify">
+		{i18n_account_disabled}
+	</div>
+	<div class="info-boop center-child fortify" tabindex="0">
+		<i class="fa fa-fw fa-question-circle"></i>
+		<div class="info-boop-content Rounded BackgroundDefault BordersDefault">
+			<h3>{i18n_account_disabled}</h3>
+			<p>{i18n_this_account_has_been_disabled_in_friend}</p>
+			{i18n_the_user_can_no_longer_read_messages}
+		</div>
+	</div>
+</div>
+</script>
+
+<!-- No reply
+-->
+<script id="input-disabled-tmpl" type="text/html">
+<div class="input-hidden Padding">
+	{i18n_you_cant_reply_to_this_conversation}
+</div>
+</script>
+
 <!-- LiveStatus
 peersId,
 -->
@@ -204,6 +229,7 @@ peersId,
 </div>
 </script>
 
+
 <!-- LiveStatusPeer
 id,
 avatarKlass,
@@ -214,6 +240,7 @@ avatarKlass,
 	</div>
 </div>
 </script>
+
 
 <!-- log fetcher
 id,
@@ -231,6 +258,7 @@ id,
 	</div>
 </div>
 </script>
+
 
 <!-- time envelope
 id,
@@ -690,6 +718,24 @@ itml
 </div>
 </script>
 
-		</div>
+
+<!-- input helper
+id,
+-->
+<script id="input-helper-tmpl" type="text/html">
+<div id="<%= id %>" class="input-helper BackgroundDefault ZebraList Interactive">
+</div>
+</script>
+
+<!-- input helper item
+str
+-->
+<script id="input-helper-item-tmpl" type="text/html">
+<div class="input-helper-item hidden">
+	<%= str %>
+</div>
+</script>
+
+		</div><!-- end of fragments -->
 	</body>
 </html>
