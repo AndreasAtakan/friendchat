@@ -27,14 +27,13 @@ var hello = window.hello || {};
 library.system = library.system || {};
 library.rtc = library.rtc || {};
 
-
 // LOGIN
 (function( ns, undefined ) {
 	ns.Login = function( defaultAccount, onlogin, onclose ) {
 		if ( !( this instanceof ns.Login ))
 			return new ns.Login( onlogin, onclose );
 		
-		var self = this;
+		const self = this;
 		self.defaultAccount = defaultAccount;
 		self.onlogin = onlogin;
 		self.onclose = onclose;
@@ -47,12 +46,12 @@ library.rtc = library.rtc || {};
 	}
 	
 	ns.Login.prototype.init = function() {
-		var self = this;
+		const self = this;
 		self.get();
 	}
 	
 	ns.Login.prototype.show = function() {
-		var self = this;
+		const self = this;
 		hello.closeLoading();
 		
 		if ( self.view )
@@ -116,7 +115,7 @@ library.rtc = library.rtc || {};
 	}
 	
 	ns.Login.prototype.bindView = function() {
-		var self = this;
+		const self = this;
 		self.view.on( 'create', create );
 		self.view.on( 'login', login );
 		self.view.on( 'delete', deleteAccount );
@@ -127,7 +126,7 @@ library.rtc = library.rtc || {};
 	}
 	
 	ns.Login.prototype.get = function() {
-		var self = this;
+		const self = this;
 		hello.request.send(
 			{
 				verb : 'GET',
@@ -150,10 +149,13 @@ library.rtc = library.rtc || {};
 		
 		function handle( accounts ) {
 			if ( !accounts.length ) {
-				self.autoCreate( doneBack );
+				self.autoCreate()
+					.then( created )
+					.catch( e => console.log( 'Login, failed to autocreate', e ));
 				return;
 				
-				function doneBack( success ) {
+				
+				function created( success ) {
 					if ( success )
 						return;
 					
@@ -189,14 +191,14 @@ library.rtc = library.rtc || {};
 	}
 	
 	ns.Login.prototype.add = function( account ) {
-		var self = this;
+		const self = this;
 		self.accounts[ account.clientId ] = account;
 		if ( self.view )
 			self.addToView( account );
 	}
 	
 	ns.Login.prototype.addToView = function( account ) {
-		var self = this;
+		const self = this;
 		self.toView({
 			type : 'add',
 			data : account,
@@ -204,7 +206,7 @@ library.rtc = library.rtc || {};
 	}
 	
 	ns.Login.prototype.showCreate = function() {
-		var self = this;
+		const self = this;
 		self.createView = new library.view.ComponentForm({
 			file : 'createAccount.html',
 			windowConf : {
@@ -222,18 +224,21 @@ library.rtc = library.rtc || {};
 		}
 	}
 	
-	ns.Login.prototype.autoCreate = function( successBack ) {
-		var self = this;
-		var data = {
-			name : hello.identity.alias,
-		};
-		
-		self.createAccount( data );
-		successBack( true );
+	ns.Login.prototype.autoCreate = function() {
+		const self = this;
+		return new Promise(( resolve, reject ) => {
+			const data = {
+				name : hello.identity.alias,
+			};
+			
+			self.createAccount( data );
+			
+			return true;
+		});
 	}
 	
 	ns.Login.prototype.createAccount = function( data ) {
-		var self = this;
+		const self = this;
 		data.userId = hello.identity.fupId;
 		var req = {
 			url : '/create',
@@ -257,7 +262,7 @@ library.rtc = library.rtc || {};
 	}
 	
 	ns.Login.prototype.login = function( msg ) {
-		var self = this;
+		const self = this;
 		var account = self.accounts[ msg.clientId ];
 		if ( !account ) {
 			console.log( 'login.login - invalid client id', msg );
@@ -281,7 +286,7 @@ library.rtc = library.rtc || {};
 	}
 	
 	ns.Login.prototype.loginResponse = function( response ) {
-		var self = this;
+		const self = this;
 		self.lastLoginResult = response;
 		if ( !response || response.status != 200 ) {
 			console.log( 'login failed', response );
@@ -295,7 +300,7 @@ library.rtc = library.rtc || {};
 	}
 	
 	ns.Login.prototype.deleteAccount = function( data ) {
-		var self = this;
+		const self = this;
 		var account = self.accounts[ data.account ];
 		
 		if ( !account ) {
@@ -322,13 +327,13 @@ library.rtc = library.rtc || {};
 	}
 	
 	ns.Login.prototype.remove = function( id ) {
-		var self = this;
+		const self = this;
 		delete self.accounts[ id ];
 		self.removeFromView( id );
 	}
 	
 	ns.Login.prototype.removeFromView = function( id ) {
-		var self = this;
+		const self = this;
 		if ( !self.view )
 			return;
 		
@@ -339,7 +344,7 @@ library.rtc = library.rtc || {};
 	}
 	
 	ns.Login.prototype.logout = function( doneBack ) {
-		var self = this;
+		const self = this;
 		var req = {
 			verb : 'POST',
 			url : '/account/logout',
@@ -357,8 +362,8 @@ library.rtc = library.rtc || {};
 	}
 	
 	ns.Login.prototype.done = function( msg ) {
-		var self = this;
-		var loginCallback = self.onlogin;
+		const self = this;
+		const loginCallback = self.onlogin;
 		self.onlogin = null;
 		
 		if ( loginCallback )
@@ -366,7 +371,7 @@ library.rtc = library.rtc || {};
 	}
 	
 	ns.Login.prototype.close = function() {
-		var self = this;
+		const self = this;
 		if ( self.view )
 			self.view.close();
 		
@@ -375,13 +380,13 @@ library.rtc = library.rtc || {};
 	}
 	
 	ns.Login.prototype.viewEvent = function( msg ) {
-		var self = this;
+		const self = this;
 		console.log( 'unhandled login event', msg );
 		return;
 	}
 	
 	ns.Login.prototype.toView = function( msg ) {
-		var self = this;
+		const self = this;
 		if ( !self.view )
 			return;
 		
@@ -397,7 +402,7 @@ library.rtc = library.rtc || {};
 		if ( !( this instanceof ns.ModuleControl ))
 			return new ns.ModuleControl( conf );
 		
-		var self = this;
+		const self = this;
 		self.parentView = conf.parentView;
 		//self.firstLogin = conf.firstLogin;
 		self.active = {};
@@ -514,14 +519,14 @@ library.rtc = library.rtc || {};
 	}
 	
 	ns.ModuleControl.prototype.bindView = function() {
-		var self = this;
+		const self = this;
 		self.view.on( 'create', create );
 		
 		function create( msg ) { self.create( msg ); }
 	}
 	
 	ns.ModuleControl.prototype.create = function( module ) {
-		var self = this;
+		const self = this;
 		if ( module )
 			self.doCreate( module );
 		else
@@ -529,7 +534,7 @@ library.rtc = library.rtc || {};
 	}
 	
 	ns.ModuleControl.prototype.add = function( modConf ) {
-		var self = this;
+		const self = this;
 		if ( modConf === null ) {
 			self.handleNoModule();
 			return;
@@ -567,7 +572,7 @@ library.rtc = library.rtc || {};
 	}
 	
 	ns.ModuleControl.prototype.remove = function( mId ) {
-		var self = this;
+		const self = this;
 		var rem = {
 			type : 'remove',
 			data : mId,
@@ -576,7 +581,7 @@ library.rtc = library.rtc || {};
 	}
 	
 	ns.ModuleControl.prototype.handleNoModule = function() {
-		var self = this;
+		const self = this;
 		console.log( 'handleNoModule - NYI' );
 		
 		return;
@@ -598,7 +603,7 @@ library.rtc = library.rtc || {};
 	}
 	
 	ns.ModuleControl.prototype.handleFirstLogin = function() {
-		var self = this;
+		const self = this;
 		// get user info
 		hello.getUserInfo( userBack );
 		function userBack( fupUser ) {
@@ -633,7 +638,7 @@ library.rtc = library.rtc || {};
 	}
 	
 	ns.ModuleControl.prototype.showCreateForm = function() {
-		var self = this;
+		const self = this;
 		self.createView = new library.view.FormView({
 			file : 'addModule.html',
 			windowConf : {
@@ -656,7 +661,7 @@ library.rtc = library.rtc || {};
 	}
 	
 	ns.ModuleControl.prototype.doCreate = function( data ) {
-		var self = this;
+		const self = this;
 		var req = {
 			type : 'create',
 			data : data,
@@ -666,7 +671,7 @@ library.rtc = library.rtc || {};
 	}
 	
 	ns.ModuleControl.prototype.createResult = function( res ) {
-		var self = this;
+		const self = this;
 		if ( self.createView )
 			self.createView.close();
 		
@@ -702,7 +707,7 @@ library.rtc = library.rtc || {};
 	}
 	
 	ns.ModuleControl.prototype.addToView = function( module ) {
-		var self = this;
+		const self = this;
 		self.view.send({
 			type : 'add',
 			data : module
@@ -710,7 +715,7 @@ library.rtc = library.rtc || {};
 	}
 	
 	ns.ModuleControl.prototype.updateInView = function(  module ) {
-		var self = this;
+		const self = this;
 		self.view.send({
 			type : 'update',
 			data : module
@@ -718,7 +723,7 @@ library.rtc = library.rtc || {};
 	}
 	
 	ns.ModuleControl.prototype.handleRemove = function( moduleId ) {
-		var self = this;
+		const self = this;
 		var module = self.active[ moduleId ];
 		if ( !module ) {
 			console.log( 'invalid module id ');
@@ -732,7 +737,7 @@ library.rtc = library.rtc || {};
 	}
 	
 	ns.ModuleControl.prototype.removeFromView = function( id ) {
-		var self = this;
+		const self = this;
 		self.view.send({
 			type : 'remove',
 			data : id
@@ -740,17 +745,17 @@ library.rtc = library.rtc || {};
 	}
 	
 	ns.ModuleControl.prototype.get = function( id ) {
-		var self = this;
+		const self = this;
 		return self.active[ id ];
 	}
 	
 	ns.ModuleControl.prototype.send = function( msg ) {
-		var self = this;
+		const self = this;
 		self.conn.send( msg );
 	}
 	
 	ns.ModuleControl.prototype.close = function() {
-		var self = this;
+		const self = this;
 		var ids = Object.keys( self.active );
 		ids.forEach( callEnd );
 		function callEnd( moduleKey ) {
@@ -846,8 +851,8 @@ library.rtc = library.rtc || {};
 	}
 	
 	ns.RtcControl.prototype.createRoom = function( contacts, permissions ) {
-		var self = this;
-		var sessionConf = {
+		const self = this;
+		const sessionConf = {
 			roomId      : null,
 			invite      : null,
 			isHost      : true,
@@ -859,9 +864,6 @@ library.rtc = library.rtc || {};
 	
 	ns.RtcControl.prototype.askClient = function( invite, inviteFrom, selfie ) {
 		const self = this;
-		if ( self.session && isInRoomSession( invite.roomId ))
-			return;
-		
 		const inviteHost = invite.host.split( '/' )[ 0 ];
 		const localHost = hello.service.getHost();
 		api.Say( 'Live invite received', { i : invite, 'if' : inviteFrom, s : selfie });
@@ -886,13 +888,6 @@ library.rtc = library.rtc || {};
 			}
 			
 			self.joinRoom( invite, inviteFrom, selfie, result.permissions );
-		}
-		
-		function isInRoomSession( roomId ) {
-			if ( !roomId )
-				return false;
-			
-			return self.session.roomId === roomId;
 		}
 		
 		function isOtherDomain( a, b ) {
@@ -927,10 +922,7 @@ library.rtc = library.rtc || {};
 	}
 	
 	ns.RtcControl.prototype.joinRoom = function( invite, inviteFrom, selfie, permissions ) {
-		var self = this;
-		if ( self.session )
-			self.closeSession();
-		
+		const self = this;
 		if ( !selfie ) {
 			selfie = {
 				name   : library.tool.getName(),
@@ -938,7 +930,7 @@ library.rtc = library.rtc || {};
 			};
 		}
 		
-		var sessionConf = {
+		const sessionConf = {
 			invite      : invite,
 			inviteFrom  : inviteFrom,
 			user        : selfie,
@@ -965,7 +957,7 @@ library.rtc = library.rtc || {};
 	// private
 	
 	ns.RtcControl.prototype.init = function( viewConn ) {
-		var self = this;
+		const self = this;
 		self.bindView( viewConn );
 	}
 	
@@ -983,21 +975,17 @@ library.rtc = library.rtc || {};
 	}
 	
 	ns.RtcControl.prototype.askHost = function( contacts, selfie ) {
-		var self = this;
-		var conf = {
-			message : 'permissions for live chat',
+		const self = this;
+		const conf = {
+			message     : 'permissions for live chat',
 			constraints : self.constraints,
 		};
-		var askView = new library.view.RtcAsk( conf, permissionBack );
+		const askView = new library.view.RtcAsk( conf, permissionBack );
 	}
 	
 	ns.RtcControl.prototype.getRoom = function( action, sessionConf ) {
-		var self = this;
-		var roomReq = {
-			type : action,
-			data : sessionConf,
-		};
-		hello.service.createRoom( roomReq );
+		const self = this;
+		hello.service.getRoom( action, sessionConf );
 	}
 	
 	ns.RtcControl.prototype.createSession = function( conf, eventSink, onclose ) {
@@ -1037,7 +1025,7 @@ library.rtc = library.rtc || {};
 	}
 	
 	ns.RtcControl.prototype.getSession = function( sId ) {
-		var self = this;
+		const self = this;
 		return self.sessions[ sId ] || null;
 	}
 	
@@ -1062,6 +1050,18 @@ library.rtc = library.rtc || {};
 		self.toView( remove );
 		
 		session.close();
+		self.restartSessions();
+	}
+	
+	ns.RtcControl.prototype.restartSessions = function() {
+		const self = this;
+		const reset = {
+			type : 'reset-output',
+		};
+		self.sessionIds.forEach( sId => {
+			const sess = self.sessions[ sId ];
+			sess.send( reset );
+		});
 	}
 	
 	ns.RtcControl.prototype.bindView = function( viewConn ) {
@@ -1166,7 +1166,10 @@ library.rtc = library.rtc || {};
 	
 	ns.Account.prototype.init = function( parentView ) {
 		const self = this;
-		hello.app.setSettings( self.settings );
+		if ( null == self.settings.roomAlert )
+			self.settings.roomAlert = self.settings.msgAlert;
+		
+		hello.setSettings( self.settings );
 		self.conn = new library.system.Message({
 			id : 'account',
 			handler : receiveMsg,
@@ -1177,6 +1180,7 @@ library.rtc = library.rtc || {};
 			'settings' : showSettings,
 			'setting'  : updateSetting,
 		};
+		
 		function showSettings( e ) { self.showSettings( e ); }
 		function updateSetting( e ) { self.updateSetting( e ); }
 		
@@ -1254,7 +1258,7 @@ library.rtc = library.rtc || {};
 	}
 	
 	ns.Account.prototype.saveSetting = function( data, callback ) {
-		var self = this;
+		const self = this;
 		var msg = {
 			type : 'setting',
 			data : data,
@@ -1263,7 +1267,7 @@ library.rtc = library.rtc || {};
 	}
 	
 	ns.Account.prototype.updateSetting = function( update ) {
-		var self = this;
+		const self = this;
 		if ( self.settingsView )
 			self.settingsView.saved( update );
 		
@@ -1274,16 +1278,16 @@ library.rtc = library.rtc || {};
 		}
 		
 		handler( update.value );
-		hello.app.setSettings( self.settings );
+		hello.setSettings( self.settings );
 	}
 	
 	ns.Account.prototype.updatePopupChat = function( value ) {
-		var self = this;
+		const self = this;
 		self.settings.popupChat = value;
 	}
 	
 	ns.Account.prototype.updateMsgAlert = function( value ) {
-		var self = this;
+		const self = this;
 		self.settings.msgAlert = value;
 	}
 	
@@ -1315,17 +1319,17 @@ library.rtc = library.rtc || {};
 	}
 	
 	ns.Account.prototype.getName = function() {
-		var self = this;
+		const self = this;
 		return self.displayName || self.clientId || 'nope, no name';
 	}
 	
 	ns.Account.prototype.send = function( msg ) {
-		var self = this;
+		const self = this;
 		self.conn.send( msg );
 	}
 	
 	ns.Account.prototype.close = function() {
-		var self = this;
+		const self = this;
 		if ( self.conn )
 			self.conn.close();
 		
@@ -1342,7 +1346,7 @@ library.rtc = library.rtc || {};
 		if ( !( this instanceof ns.Notification ))
 			return new ns.Notification( conf );
 		
-		var self = this;
+		const self = this;
 		self.type = 'notification';
 		self.handlerId = null;
 		
@@ -1350,7 +1354,7 @@ library.rtc = library.rtc || {};
 	}
 	
 	ns.Notification.prototype.init = function( parentView ) {
-		var self = this;
+		const self = this;
 		self.view = new library.component.SubView({
 			parent : parentView,
 			type : self.type,
@@ -1365,19 +1369,19 @@ library.rtc = library.rtc || {};
 	}
 	
 	ns.Notification.prototype.newLogItem = function( msg ) {
-		var self = this;
+		const self = this;
 		self.set( msg );
 	}
 	
 	ns.Notification.prototype.bindView = function() {
-		var self = this;
+		const self = this;
 		self.view.on( 'toggle', logToggleView );
 		
 		function logToggleView( msg ) { self.toggleLogView( msg ); }
 	}
 	
 	ns.Notification.prototype.toggleLogView = function( bool ) {
-		var self = this;
+		const self = this;
 		var isNowOpen = hello.log.toggle();
 		self.view.send({
 			type : 'toggle',
@@ -1386,12 +1390,12 @@ library.rtc = library.rtc || {};
 	}
 	
 	ns.Notification.prototype.set = function( msg ) {
-		var self = this;
+		const self = this;
 		self.view.send( msg );
 	}
 	
 	ns.Notification.prototype.close = function() {
-		var self = this;
+		const self = this;
 		if ( self.handlerId && hello.log )
 			hello.log.weDidntListen( self.handlerId );
 		else
@@ -1415,7 +1419,7 @@ library.rtc = library.rtc || {};
 		if ( !( this instanceof ns.Log ))
 			return new ns.Log( onclose );
 		
-		var self = this;
+		const self = this;
 		self.onclose = onclose;
 		self.log = [];
 		self.view = null;
@@ -1426,22 +1430,22 @@ library.rtc = library.rtc || {};
 	
 	// PUBLIC
 	ns.Log.prototype.positive = function( message, timestamp ) {
-		var self = this;
+		const self = this;
 		self.normalize( message, 'positive', timestamp );
 	}
 	
 	ns.Log.prototype.notify = function( message, timestamp ) {
-		var self = this;
+		const self = this;
 		self.normalize( message, 'notify', timestamp );
 	}
 	
 	ns.Log.prototype.alert = function( message, timestamp ) {
-		var self = this;
+		const self = this;
 		self.normalize( message, 'alert', timestamp );
 	}
 	
 	ns.Log.prototype.waiting = function( message, startTime, endTime ) {
-		var self = this;
+		const self = this;
 		var data = {
 			type : 'waiting',
 			data : {
@@ -1456,24 +1460,24 @@ library.rtc = library.rtc || {};
 	
 	// plain ( same as info )
 	ns.Log.prototype.add = function( message ) {
-		var self = this;
+		const self = this;
 		self.normalize( message );
 	}
 	
 	// show ( you_dont_say.jpg )
 	ns.Log.prototype.show = function() {
-		var self = this;
+		const self = this;
 		self.showView();
 	}
 	
 	// privates
 	
 	ns.Log.prototype.init = function() {
-		var self = this;
+		const self = this;
 	}
 	
 	ns.Log.prototype.showView = function() {
-		var self = this;
+		const self = this;
 		if ( self.view )
 			return;
 		
@@ -1512,14 +1516,14 @@ library.rtc = library.rtc || {};
 	}
 	
 	ns.Log.prototype.bindView = function() {
-		var self = this;
+		const self = this;
 		self.view.on( 'clear', clear );
 		
 		function clear( msg ) { self.clear(); }
 	}
 	
 	ns.Log.prototype.pushLogToView = function() {
-		var self = this;
+		const self = this;
 		self.log.forEach( add );
 		function add( item ) {
 			self.addToView( item );
@@ -1527,7 +1531,7 @@ library.rtc = library.rtc || {};
 	}
 	
 	ns.Log.prototype.hide = function() {
-		var self = this;
+		const self = this;
 		if ( !self.view )
 			return;
 		
@@ -1536,7 +1540,7 @@ library.rtc = library.rtc || {};
 	}
 	
 	ns.Log.prototype.toggle = function() {
-		var self = this;
+		const self = this;
 		if ( self.view ) {
 			self.hide();
 			return false;
@@ -1549,7 +1553,7 @@ library.rtc = library.rtc || {};
 	}
 	
 	ns.Log.prototype.normalize = function( msg, alertLevel, timestamp ) {
-		var self = this;
+		const self = this;
 		if ( typeof( msg ) == 'string' ) {
 			msg = friendUP.tool.ucfirst( msg );
 			msg = self.buildNotification( msg, alertLevel, timestamp );
@@ -1559,14 +1563,14 @@ library.rtc = library.rtc || {};
 	}
 	
 	ns.Log.prototype.set = function( data ) {
-		var self = this;
+		const self = this;
 		self.log.push( data );
 		self.addToView( data );
 		self.emit( data );
 	}
 	
 	ns.Log.prototype.addToView = function( msg ) {
-		var self = this;
+		const self = this;
 		if ( !self.view )
 			return;
 		
@@ -1574,7 +1578,7 @@ library.rtc = library.rtc || {};
 	}
 	
 	ns.Log.prototype.buildNotification = function( msg, alertLevel, timestamp ) {
-		var self = this;
+		const self = this;
 		var alertLevel = alertLevel || 'info';
 		var time = timestamp || Date.now();
 		var msg = {
@@ -1589,7 +1593,7 @@ library.rtc = library.rtc || {};
 	}
 	
 	ns.Log.prototype.clear = function() {
-		var self = this;
+		const self = this;
 		self.log = [];
 		var msg = {
 			type : 'clear',
@@ -1599,13 +1603,13 @@ library.rtc = library.rtc || {};
 	}
 	
 	ns.Log.prototype.getLatestEntry = function() {
-		var self = this;
+		const self = this;
 		var lastIndex = self.log.length -1;
 		return self.log[ lastIndex ];
 	}
 	
 	ns.Log.prototype.emit = function( msg ) {
-		var self = this;
+		const self = this;
 		var listenerIds = Object.keys( self.listener );
 		listenerIds.forEach( emit );
 		function emit( id ) {
@@ -1615,14 +1619,14 @@ library.rtc = library.rtc || {};
 	}
 	
 	ns.Log.prototype.listen = function( handler ) {
-		var self = this;
+		const self = this;
 		var id = friendUP.tool.uid( 'listener' );
 		self.listener[ id ] = handler;
 		return id;
 	}
 	
 	ns.Log.prototype.weDidntListen = function( handlerId ) {
-		var self = this;
+		const self = this;
 		if ( self.listener[ handlerId ])
 			delete self.listener[ handlerId ];
 	}
@@ -1649,7 +1653,7 @@ library.rtc = library.rtc || {};
 	// Public
 	
 	ns.Connection.prototype.on = function( type, callback ) {
-		var self = this;
+		const self = this;
 		if ( !type || !callback ) {
 			console.log( 'connection.on: missing arguments',
 				{ type : type, callback : callback });
@@ -1667,7 +1671,7 @@ library.rtc = library.rtc || {};
 	}
 	
 	ns.Connection.prototype.off = function( type ) {
-		var self = this;
+		const self = this;
 		if ( !type || !self.subscriber[ type ] ) {
 			console.log( 'connection.off - invalid subscriber', type );
 			return;
@@ -1687,7 +1691,7 @@ library.rtc = library.rtc || {};
 	}
 	
 	ns.Connection.prototype.connect = function( callback ) {
-		var self = this;
+		const self = this;
 		if( !hello.config || !hello.config.host ) {
 			throw new Error( 'missing websocket config stuff' );
 			return;
@@ -1748,7 +1752,7 @@ library.rtc = library.rtc || {};
 	// Private
 	
 	ns.Connection.prototype.init = function() {
-		var self = this;
+		const self = this;
 		self.socketEventMap = {
 			'connect'    : socketConnecting,
 			'open'       : socketOpen,
@@ -1909,7 +1913,7 @@ library.rtc = library.rtc || {};
 		if ( !( this instanceof ns.Message ))
 			return new ns.Message( conf );
 		
-		var self = this;
+		const self = this;
 		self.id = conf.id;
 		self.handler = conf.handler;
 		self.parentId = conf.parent;
@@ -1918,13 +1922,13 @@ library.rtc = library.rtc || {};
 	}
 	
 	ns.Message.prototype.init = function() {
-		var self = this;
+		const self = this;
 		hello.conn.on( self.id , message );
 		function message( msg ) { self.message( msg ); }
 	}
 	
 	ns.Message.prototype.send = function( msg ) {
-		var self = this;
+		const self = this;
 		var wrap = {
 			type : self.parentId || self.id,
 			data : msg,
@@ -1934,7 +1938,7 @@ library.rtc = library.rtc || {};
 	}
 	
 	ns.Message.prototype.message = function( data ) {
-		var self = this;
+		const self = this;
 		if ( !data ) {
 			console.log( 'Message - empty message', data );
 			return;
@@ -1944,7 +1948,7 @@ library.rtc = library.rtc || {};
 	}
 	
 	ns.Message.prototype.close = function() {
-		var self = this;
+		const self = this;
 		hello.conn.off( self.id );
 	}
 	
@@ -1958,7 +1962,7 @@ library.rtc = library.rtc || {};
 		if( !(this instanceof ns.Request))
 			return new ns.Request( conf );
 		
-		var self = this;
+		const self = this;
 		self.conn = conf.conn;
 		self.request = {};
 		
@@ -1967,13 +1971,13 @@ library.rtc = library.rtc || {};
 	
 	ns.Request.prototype.init = function()
 	{
-		var self = this;
+		const self = this;
 		self.conn.on( 'request', receiveMessage );
 		function receiveMessage( msg ) { self.message( msg ); }
 	}
 	
 	ns.Request.prototype.message = function( data ) {
-		var self = this;
+		const self = this;
 		if( !data.callbackId ) {
 			console.log( 'response with no callback: ', data );
 			return;
@@ -1991,7 +1995,7 @@ library.rtc = library.rtc || {};
 	}
 	
 	ns.Request.prototype.send = function( msg, callback ) {
-		var self = this;
+		const self = this;
 		var wrap = {
 			type : 'request',
 			data : msg,
@@ -2023,7 +2027,7 @@ library.rtc = library.rtc || {};
 		if ( !( this instanceof ns.Interceptor ))
 			return new ns.Interceptor();
 		
-		var self = this;
+		const self = this;
 		self.interceptToken = '&zwnj;&zwnj;&zwnj;';
 		self.appUrl = '/webclient/app.html?app=FriendChat&data=';
 		self.RX = null;
@@ -2034,7 +2038,7 @@ library.rtc = library.rtc || {};
 	// public
 	
 	ns.Interceptor.prototype.check = function( message ) {
-		var self = this;
+		const self = this;
 		if ( !message || !message.toString ) {
 			return null;
 		}
@@ -2110,7 +2114,7 @@ library.rtc = library.rtc || {};
 	// private
 	
 	ns.Interceptor.prototype.init = function() {
-		var self = this;
+		const self = this;
 		var typeRX = '(' + self.interceptToken + ').*(https|json):\\/\\/(.*)';
 		self.typeRX = new RegExp( typeRX, 'i' );
 		self.typeMap = {
@@ -2123,7 +2127,7 @@ library.rtc = library.rtc || {};
 	}
 	
 	ns.Interceptor.prototype.handleURL = function( dataStr ) {
-		var self = this;
+		const self = this;
 		var splitter = '&data=';
 		var dataParts = dataStr.split( splitter );
 		// remove the first part, leaving only data..
@@ -2148,7 +2152,7 @@ library.rtc = library.rtc || {};
 	}
 	
 	ns.Interceptor.prototype.handleJSON = function( jsonStr ) {
-		var self = this;
+		const self = this;
 		var json = friendUP.tool.parse( jsonStr );
 		if ( !json ) {
 			console.log( 'Interceptor.handleJSON - could not parse', jsonStr );
@@ -2171,7 +2175,7 @@ library.rtc = library.rtc || {};
 		if ( !( this instanceof ns.Confirm ))
 			return new ns.Confirm( viewConf, callback );
 		
-		var self = this;
+		const self = this;
 		self.view =  null;
 		self.filepath = conf.filepath;
 		self.windowConf = conf.windowConf;
@@ -2182,7 +2186,7 @@ library.rtc = library.rtc || {};
 	}
 	
 	ns.Confirm.prototype.init = function() {
-		var self = this;
+		const self = this;
 		self.view = new api.View({
 			filepath : self.filepath,
 			windowConf : self.windowConf,
@@ -2192,7 +2196,7 @@ library.rtc = library.rtc || {};
 	}
 	
 	ns.Confirm.prototype.bindView = function() {
-		var self = this;
+		const self = this;
 		self.view.on( 'loaded', loaded );
 		self.view.on( 'ready', ready );
 		self.view.on( 'response', response );
@@ -2203,7 +2207,7 @@ library.rtc = library.rtc || {};
 	}
 	
 	ns.Confirm.prototype.loaded = function( msg ) {
-		var self = this;
+		const self = this;
 		self.view.send({
 			type : 'initialize',
 			data : self.config,
@@ -2211,7 +2215,7 @@ library.rtc = library.rtc || {};
 	}
 	
 	ns.Confirm.prototype.response = function( msg ) {
-		var self = this;
+		const self = this;
 		self.callback( msg );
 		self.view.close();
 	}
@@ -2228,7 +2232,7 @@ library.rtc = library.rtc || {};
 		if ( !( this instanceof ns.RtcSession ))
 			return new ns.RtcSession( conf, eventSink, onclose );
 		
-		var self = this;
+		const self = this;
 		library.component.EventEmitter.call( self, eventSink );
 		
 		self.id = null; // set by initialize / open event
@@ -2243,7 +2247,7 @@ library.rtc = library.rtc || {};
 		self.server = null;
 		self.view = null;
 		self.peers = null;
-		self.queue = [];
+		self.sendQueue = [];
 		
 		self.init();
 	}
@@ -2264,9 +2268,10 @@ library.rtc = library.rtc || {};
 	
 	//
 	ns.RtcSession.prototype.send = function( event ) {
-		var self = this;
+		const self = this;
 		if ( !self.view )  {
-			console.log( '!rtc.session.view - dropping', event );
+			console.log( '!rtc.session.view - queueueueueuing', event );
+			self.sendQueue.push( event );
 			return;
 		}
 		
@@ -2323,6 +2328,7 @@ library.rtc = library.rtc || {};
 		
 		self.id = init.liveId;
 		const roomConf = init.liveConf;
+		console.log( 'RtcSession - roomConf', roomConf );
 		const viewConf = self.conf;
 		const liveConf = {
 			userId      : roomConf.userId,
@@ -2332,6 +2338,8 @@ library.rtc = library.rtc || {};
 			identities  : init.identities,
 			roomName    : viewConf.roomName,
 			isPrivate   : viewConf.isPrivate,
+			isTempRoom  : viewConf.isTempRoom,
+			isStream    : viewConf.isStream,
 			logTail     : roomConf.logTail,
 			rtcConf     : {
 				ICE         : roomConf.ICE,
@@ -2339,6 +2347,8 @@ library.rtc = library.rtc || {};
 				quality     : roomConf.quality,
 				mode        : roomConf.mode,
 				sourceId    : roomConf.sourceId,
+				topology    : roomConf.topology,
+				isRecording : roomConf.isRecording,
 			},
 		};
 		self.view = new library.view.Live(
@@ -2349,6 +2359,10 @@ library.rtc = library.rtc || {};
 		);
 		
 		delete self.identities;
+		if ( self.sendQueue.length ) {
+			self.sendQueue.forEach( e => self.send( e ));
+			self.sendQueue = [];
+		}
 		
 		function eventSink( type, data ) {
 			self.emit( type, data );
@@ -2383,7 +2397,7 @@ library.rtc = library.rtc || {};
 			return false;
 		}
 		
-		var self = this;
+		const self = this;
 		self.allowRead = allowRead;
 		self.allowWrite = allowWrite;
 		
@@ -2417,7 +2431,7 @@ library.rtc = library.rtc || {};
 	// Private
 	
 	ns.Dormant.prototype.init = function() {
-		var self = this;
+		const self = this;
 		self.dormant = friend.Dormant;
 		var conf = {
 			title : 'FriendChat',
@@ -2428,7 +2442,7 @@ library.rtc = library.rtc || {};
 	}
 	
 	ns.Dormant.prototype.setBase = function() {
-		var self = this;
+		const self = this;
 		
 		const fDir = new api.DoorDir({
 			title : 'Functions',

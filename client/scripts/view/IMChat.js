@@ -54,14 +54,11 @@ library.component = library.component || {};
 		if ( window.View.appConf.hideLive )
 			self.toggleLiveBtns( false );
 		
-		self.appOnline = new library.component.AppOnline( window.View );
-		
 		self.view = window.View;
 		self.messages = document.getElementById( 'messages' );
 		self.placeholder = document.getElementById( 'message-confirm' );
 		self.placeholderText = document.getElementById( 'message-ph' );
 		
-		var fragments = document.getElementById( 'fragments' );
 		self.bottomScroller = new library.component.BottomScroller( 'messages' );
 		self.flourish = new library.component.Flourish( 'flourish-message' );
 		self.highlight = new library.component.Highlight({
@@ -87,9 +84,7 @@ library.component = library.component || {};
 		self.bindView();
 		self.bindEvents();
 		
-		self.view.sendMessage({
-			type : 'loaded',
-		});
+		window.View.loaded();
 		
 		// Timeout for loading messages
 		setTimeout( function()
@@ -258,7 +253,6 @@ library.component = library.component || {};
 		self.updateButtons( data.state );
 		
 		hello.config = data.config;
-		friend.template.addFragments( data.fragments );
 		
 		// parser
 		self.parser = new library.component.parse.Parser();
@@ -266,13 +260,13 @@ library.component = library.component || {};
 		self.parser.use( 'Emojii', hello.config.emojii );
 		
 		// link expansion
-		var leConf = {
+		const leConf = {
 			templateManager : friend.template,
 		};
 		self.linkExpand = new library.component.LinkExpand( leConf );
 		
 		// msgBuilder
-		var msgConf = {
+		const msgConf = {
 			user             : self.user,
 			contact          : self.contact,
 			parser           : self.parser,
@@ -286,17 +280,15 @@ library.component = library.component || {};
 		self.msgBuilder = new library.component.MsgBuilder( msgConf );
 		
 		// multi line input
-		var multiConf = {
+		const multiConf = {
 			containerId     : 'input-container',
 			templateManager : friend.template,
 			singleOnly      : !data.state.multilineCap,
 			multiIsOn       : false,
-			onsubmit        : onSubmit,
-			onmode          : onMode,
 		};
 		self.input = new library.component.MultiInput( multiConf );
-		function onSubmit( e ) { self.handleSubmit( e ); }
-		function onMode( e ) { self.toggleMultilineActive( e ); }
+		self.input.on( 'submit'   , e => self.handleSubmit( e ));
+		self.input.on( 'multiline', e => self.toggleMultilineActive( e ));
 		
 		// input history
 		self.inputHistory = new library.component.InputHistory({
@@ -308,9 +300,7 @@ library.component = library.component || {};
 		self.setAvatarCss();
 		//self.toggleSmoothScroll( false );
 		
-		self.view.sendMessage({
-			type : 'ready',
-		});
+		self.view.ready();
 		
 		if ( 'DESKTOP' !== window.View.deviceType )
 			self.setFocus( true );

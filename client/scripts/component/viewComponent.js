@@ -36,7 +36,7 @@ library.component = library.component || {};
 		if ( !hello.template )
 			throw new Error( 'hello.template not defined' );
 		
-		var self = this;
+		const self = this;
 		self.parentId = parentId || 'form';
 		self.templateId = 'form-overlay-tmpl';
 		self.overlayId = 'form-overlay';
@@ -47,27 +47,27 @@ library.component = library.component || {};
 	}
 	
 	ns.FormOverlay.prototype.init = function() {
-		var self = this;
+		const self = this;
 		self.parent = document.getElementById( self.parentId );
 		self.build();
 	}
 	
 	ns.FormOverlay.prototype.build = function() {
-		var self = this;
+		const self = this;
 		var overlayElement = hello.template.getElement( self.templateId );
 		self.parent.appendChild( overlayElement );
 		self.bind();
 	}
 	
 	ns.FormOverlay.prototype.bind = function() {
-		var self = this;
+		const self = this;
 		self.element = document.getElementById( self.overlayId );
 		self.msgContainer = self.element.querySelector( '.message-container' );
 		self.spinner = self.element.querySelector( '.spinner' );
 	}
 	
 	ns.FormOverlay.prototype.show = function() {
-		var self = this;
+		const self = this;
 		self.msgContainer.innerHTML = '';
 		self.msgContainer.classList.toggle( 'hidden', true );
 		self.spinner.classList.toggle( 'hidden', false );
@@ -76,12 +76,12 @@ library.component = library.component || {};
 	}
 	
 	ns.FormOverlay.prototype.hide = function() {
-		var self = this;
+		const self = this;
 		self.element.classList.toggle( 'hidden', true );
 	}
 	
 	ns.FormOverlay.prototype.success = function( msg, callback ) {
-		var self = this;
+		const self = this;
 		self.clickBack = callback;
 		var tmplConf = {
 			type : 'success',
@@ -93,7 +93,7 @@ library.component = library.component || {};
 	}
 	
 	ns.FormOverlay.prototype.error = function( msg, callback ) {
-		var self = this;
+		const self = this;
 		self.clickBack = callback;
 		var tmplConf = {
 			type : 'error',
@@ -105,7 +105,7 @@ library.component = library.component || {};
 	}
 	
 	ns.FormOverlay.prototype.showMessage = function( msgConf ) {
-		var self = this;
+		const self = this;
 		var message = hello.template.getElement( 'form-overlay-message-tmpl', msgConf );
 		self.spinner.classList.add( 'hidden' );
 		self.msgContainer.appendChild( message );
@@ -131,7 +131,7 @@ library.component = library.component || {};
 		if ( !( this instanceof ns.OptionMenu ))
 			return new ns.OptionMenu( conf );
 		
-		var self = this;
+		const self = this;
 		self.buttonParentId = conf.buttonParentId;
 		self.options = conf.options;
 		self.order = conf.order;
@@ -145,13 +145,13 @@ library.component = library.component || {};
 	};
 	
 	ns.OptionMenu.prototype.init = function() {
-		var self = this;
+		const self = this;
 		self.build();
 		self.setMenu();
 	};
 	
 	ns.OptionMenu.prototype.build = function() {
-		var self = this;
+		const self = this;
 		var buttonContainer = document.getElementById( self.buttonParentId );
 		if ( !buttonContainer )
 			throw new Error( 'could not ' + self.buttonParentId );
@@ -182,7 +182,7 @@ library.component = library.component || {};
 	}
 	
 	ns.OptionMenu.prototype.bind = function() {
-		var self = this;
+		const self = this;
 		var button = document.getElementById( self.buttonId );
 		
 		button.addEventListener( 'click', showMenu, false );
@@ -202,7 +202,7 @@ library.component = library.component || {};
 	}
 	
 	ns.OptionMenu.prototype.setMenu = function() {
-		var self = this;
+		const self = this;
 		var container = self.menu.querySelector( '.menu-items' );
 		var order = self.order || Object.keys( self.options );
 		order.forEach( build );
@@ -227,7 +227,7 @@ library.component = library.component || {};
 	}
 	
 	ns.OptionMenu.prototype.show = function( event ) {
-		var self = this;
+		const self = this;
 		if ( event )
 			setPos( event.pageY );
 		
@@ -238,7 +238,7 @@ library.component = library.component || {};
 	}
 	
 	ns.OptionMenu.prototype.hide = function() {
-		var self = this;
+		const self = this;
 		self.menu.classList.toggle( 'show', false );
 	}
 	
@@ -375,25 +375,30 @@ library.component = library.component || {};
 			return;
 		}
 		
+		
 		stateKey = stateKey.toString();
-		if ( !self.statusMap[ stateKey ]) {
-			console.log( 'statusIndicator.set - unknown state', stateKey );
+		const current = self.statusMap[ self.state ];
+		const update = self.statusMap[ stateKey ];
+		if ( current === update )
+			return;
+		
+		if ( current.length )
+			self.inner.classList.toggle( current, false );
+		
+		if ( null == update ) {
+			self.state = null;
+			console.log( 'statusIndicator.set - unknown state', {
+				key    : stateKey,
+				states : self.statusMap,
+			});
 			return;
 		}
 		
 		self.state = stateKey
-		removeCurrentClass();
-		addNewStateClass();
+		if ( !update.length )
+			return;
 		
-		function removeCurrentClass() {
-			const parts = self.inner.className.split( ' ' );
-			parts.pop(); // remove last
-			self.inner.className = parts.join( ' ' );
-		}
-		
-		function addNewStateClass() {
-			self.inner.classList.add( self.statusMap[ stateKey ]);
-		}
+		self.inner.classList.toggle( update, true );
 	}
 	
 	ns.StatusIndicator.prototype.getState = function() {
@@ -407,7 +412,7 @@ library.component = library.component || {};
 (function( ns, undefined ) {
 	ns.StatusDisplay = function( conf ) {
 		
-		var self = this;
+		const self = this;
 		self.display = conf.display || '';
 		self.displayArea = null;
 		
@@ -424,7 +429,7 @@ library.component = library.component || {};
 	// public
 	
 	ns.StatusDisplay.prototype.setDisplay = function( str ) {
-		var self = this;
+		const self = this;
 		self.display = str;
 		self.displayArea.textContent = str;
 	}
@@ -527,7 +532,7 @@ library.component = library.component || {};
 	}
 	
 	ns.BottomScroller.prototype.onMutation = function( mutations ) {
-		var self = this;
+		const self = this;
 		self.reposition();
 		return;
 		
@@ -541,7 +546,7 @@ library.component = library.component || {};
 	}
 	
 	ns.BottomScroller.prototype.bindLoad = function( nodes ) {
-		var self = this;
+		const self = this;
 		nodes.forEach( findLoadyThings );
 		function findLoadyThings( node ) {
 			var imgs = node.getElementsByTagName( 'img' );
@@ -575,7 +580,7 @@ library.component = library.component || {};
 	}
 	
 	ns.BottomScroller.prototype.updateScrollTreshold = function() {
-		var self = this;
+		const self = this;
 		var viewport = self.element.parentNode;
 		var sH = viewport.scrollHeight;
 		var sTP = self.scrollTresholdPercent;
@@ -583,7 +588,7 @@ library.component = library.component || {};
 	}
 	
 	ns.BottomScroller.prototype.checkIsAtBottom = function( e ) {
-		var self = this;
+		const self = this;
 		var viewport = self.element.parentNode;
 		var scrollHeight = self.element.scrollHeight;
 		var difference = self.element.scrollTop + viewport.scrollHeight;
@@ -599,7 +604,7 @@ library.component = library.component || {};
 	}
 	
 	ns.BottomScroller.prototype.reposition = function() {
-		var self = this;
+		const self = this;
 		if ( !self.scrollAtBottom )
 			return;
 		
@@ -607,7 +612,7 @@ library.component = library.component || {};
 	}
 	
 	ns.BottomScroller.prototype.scrollToBottom = function() {
-		var self = this;
+		const self = this;
 		self.element.scrollTop = self.element.scrollHeight;
 	}
 	
@@ -620,7 +625,7 @@ library.component = library.component || {};
 		if ( !( this instanceof ns.Foldit ))
 			return new ns.Foldit( conf );
 		
-		var self = this;
+		const self = this;
 		self.folderId = conf.folderId;
 		self.foldeeId = conf.foldeeId;
 		
@@ -628,19 +633,19 @@ library.component = library.component || {};
 	}
 	
 	ns.Foldit.prototype.up = function() {
-		var self = this;
+		const self = this;
 		self.togglePosition( true );
 	}
 	
 	ns.Foldit.prototype.down = function() {
-		var self = this;
+		const self = this;
 		self.togglePosition( false );
 	}
 	
 	// PRIVATE
 	
 	ns.Foldit.prototype.setup = function( startClosed ) {
-		var self = this;
+		const self = this;
 		self.folder = document.getElementById( self.folderId );
 		self.folder.classList.add( 'foldit');
 		
@@ -659,13 +664,13 @@ library.component = library.component || {};
 	}
 	
 	ns.Foldit.prototype.insertHtml = function() {
-		var self = this;
+		const self = this;
 		var element = hello.template.getElement( 'foldit-tmpl' );
 		self.stateContainer.appendChild( element );
 	}
 	
 	ns.Foldit.prototype.bindEvents = function() {
-		var self = this;
+		const self = this;
 		self.stateIndicator.addEventListener( 'click', fold, false );
 		self.folder.addEventListener( 'click', fold, false );
 		
@@ -680,7 +685,7 @@ library.component = library.component || {};
 	}
 	
 	ns.Foldit.prototype.toggleFold = function () {
-		var self = this;
+		const self = this;
 		if ( isUp() )
 			self.down();
 		else
@@ -692,7 +697,7 @@ library.component = library.component || {};
 	}
 	
 	ns.Foldit.prototype.togglePosition = function( setUp ) {
-		var self = this;
+		const self = this;
 		self.stateIndicator.classList.toggle( 'fa-rotate-90', setUp );
 		self.stateIndicator.classList.toggle( 'fa-rotate-180', !setUp );
 		self.foldee.classList.toggle( 'fold', setUp );
@@ -706,13 +711,13 @@ library.component = library.component || {};
 		if ( !( this instanceof ns.Guide ))
 			return new ns.Guide( conf );
 		
-		var self = this;
+		const self = this;
 		self.element = conf.element;
 		self.containerId = conf.containerId;
 	}
 	
 	ns.Guide.prototype.show = function() {
-		var self = this;
+		const self = this;
 		var exists = document.getElementById( self.element.id );
 		if ( exists )
 			return;
@@ -722,7 +727,7 @@ library.component = library.component || {};
 	}
 	
 	ns.Guide.prototype.hide = function() {
-		var self = this;
+		const self = this;
 		if ( !self.element.parentNode )
 			return;
 		
@@ -737,7 +742,7 @@ library.component = library.component || {};
 		if ( !( this instanceof ns.InfoBox ))
 			return new ns.InfoBox( conf );
 		
-		var self = this;
+		const self = this;
 		self.element = conf.element || null;
 		self.containerId = conf.containerId;
 		
@@ -745,7 +750,7 @@ library.component = library.component || {};
 	}
 	
 	ns.InfoBox.prototype.init = function() {
-		var self = this;
+		const self = this;
 		if ( self.element )
 			self.show();
 	}
@@ -753,7 +758,7 @@ library.component = library.component || {};
 	// public
 	
 	ns.InfoBox.prototype.show = function( element, tmplId ) {
-		var self = this;
+		const self = this;
 		if ( element && self.element )
 			self.remove();
 		
@@ -775,7 +780,7 @@ library.component = library.component || {};
 	}
 	
 	ns.InfoBox.prototype.setFocus = function() {
-		var self = this;
+		const self = this;
 		var inputs = self.element.querySelectorAll( 'input, button' );
 		var firstInput = inputs[ 0 ];
 		if ( firstInput )
@@ -783,7 +788,7 @@ library.component = library.component || {};
 	}
 	
 	ns.InfoBox.prototype.hide = function() {
-		var self = this;
+		const self = this;
 		self.remove();
 		self.tmplId = null;
 		self.toggleSiblings( true );
@@ -792,13 +797,13 @@ library.component = library.component || {};
 	// private
 	
 	ns.InfoBox.prototype.isSet = function( elementId ) {
-		var self = this;
+		const self = this;
 		var exists = document.getElementById( elementId );
 		return !!exists;
 	}
 	
 	ns.InfoBox.prototype.remove = function() {
-		var self = this;
+		const self = this;
 		if ( !self.element )
 			return;
 		
@@ -833,7 +838,7 @@ library.component = library.component || {};
 		if ( !( this instanceof ns.InputHistory ))
 			return new ns.InputHistory( conf );
 		
-		var self = this;
+		const self = this;
 		self.inputId = conf.inputId;
 		self.limit = conf.limit || 50;
 		self.history = [];
@@ -842,7 +847,7 @@ library.component = library.component || {};
 	}
 	
 	ns.InputHistory.prototype.init = function() {
-		var self = this;
+		const self = this;
 		self.actionMap = {
 			'ArrowUp'        : maybeShowOlder,
 			'shiftArrowUp'   : older,
@@ -863,7 +868,7 @@ library.component = library.component || {};
 	}
 	
 	ns.InputHistory.prototype.handleKey = function( e ) {
-		var self = this;
+		const self = this;
 		var key = e.code || e.key;
 		if ( e.shiftKey )
 			key = 'shift' + key;
@@ -882,7 +887,7 @@ library.component = library.component || {};
 	}
 	
 	ns.InputHistory.prototype.add = function( str ) {
-		var self = this;
+		const self = this;
 		var prev = self.history[( self.history.length - 1 )];
 		if ( prev !== str )
 			self.history.push( str );
@@ -894,7 +899,7 @@ library.component = library.component || {};
 	}
 	
 	ns.InputHistory.prototype.clear = function() {
-		var self = this;
+		const self = this;
 		self.history = [];
 		self.index = self.history.length;
 		self.setInput();
@@ -910,38 +915,38 @@ library.component = library.component || {};
 	}
 	
 	ns.InputHistory.prototype.showOlder = function() {
-		var self = this;
+		const self = this;
 		self.index = self.index -1;
 		self.setInput();
 	}
 	
 	ns.InputHistory.prototype.showNewer = function() {
-		var self = this;
+		const self = this;
 		self.index = self.index + 1;
 		self.setInput();
 	}
 	
 	ns.InputHistory.prototype.showOldest = function() {
-		var self = this;
+		const self = this;
 		self.index = 0;
 		self.setInput();
 	}
 	
 	ns.InputHistory.prototype.showNewest = function() {
-		var self = this;
+		const self = this;
 		self.index = self.history.length - 1;
 		self.setInput();
 	}
 	
 	ns.InputHistory.prototype.setInput = function() {
-		var self = this;
+		const self = this;
 		var str = self.getStr();
 		self.input.value = str;
 		self.input.setSelectionRange( 0, 0 );
 	}
 	
 	ns.InputHistory.prototype.boundIndex = function() {
-		var self = this;
+		const self = this;
 		var oob = false; // out of bounds
 		var index = self.index;
 		var length = self.history.length;
@@ -962,7 +967,7 @@ library.component = library.component || {};
 	}
 	
 	ns.InputHistory.prototype.getStr = function() {
-		var self = this;
+		const self = this;
 		var isOutOfBounds = self.boundIndex();
 		if ( isOutOfBounds )
 			return '';
@@ -979,18 +984,18 @@ library.component = library.component || {};
 		if ( !( this instanceof ns.Flourish ))
 			return new ns.Flourish( defaultCssClass );
 		
-		var self = this;
+		const self = this;
 		self.defaultCssClass = defaultCssClass;
 		
 		self.init();
 	}
 	
 	ns.Flourish.prototype.init = function() {
-		var self = this;
+		const self = this;
 	}
 	
 	ns.Flourish.prototype.do = function( element, cssClass ) {
-		var self = this;
+		const self = this;
 		cssClass = cssClass || self.defaultCssClass || '';
 		if ( !cssClass )
 			throw new Error( 'Flourish - no cssClass provided' );
@@ -1011,7 +1016,7 @@ library.component = library.component || {};
 		if ( !( this instanceof ns.Highlight ))
 			return new ns.Highlight( conf );
 		
-		var self = this;
+		const self = this;
 		self.hlClass = conf.cssClass;
 		self.checks = conf.checks || [];
 		self.listener = conf.listener;
@@ -1020,7 +1025,7 @@ library.component = library.component || {};
 		self.init();
 	}
 	ns.Highlight.prototype.check = function( str, element ) {
-		var self = this;
+		const self = this;
 		if ( !str || ( typeof( str ) !== 'string' ))
 			return false;
 		
@@ -1036,20 +1041,20 @@ library.component = library.component || {};
 	}
 	
 	ns.Highlight.prototype.addCheck = function( str ) {
-		var self = this;
+		const self = this;
 		self.checks.push( str );
 		self.updateCheckRX();
 	}
 	
 	ns.Highlight.prototype.setCheck = function( str ) {
-		var self = this;
+		const self = this;
 		self.checks = [];
 		self.checks.push( str );
 		self.updateCheckRX();
 	}
 	
 	ns.Highlight.prototype.removeCheck = function( str ) {
-		var self = this;
+		const self = this;
 		self.checks = self.checks.filter( isNot );
 		self.updateCheckRX();
 		
@@ -1068,13 +1073,13 @@ library.component = library.component || {};
 	// Private
 	
 	ns.Highlight.prototype.init = function() {
-		var self = this;
+		const self = this;
 		if ( self.check.length )
 			self.updateCheckRX();
 	}
 	
 	ns.Highlight.prototype.updateCheckRX = function() {
-		var self = this;
+		const self = this;
 		var args = self.checks.map( addParens );
 		var rx = args.join( '|' );
 		self.RX = new window.RegExp( rx, 'i' );
@@ -1092,7 +1097,7 @@ library.component = library.component || {};
 		if ( !( this instanceof ns.LinkExpand ))
 			return new ns.LinkExpand( conf );
 			
-		var self = this;
+		const self = this;
 		self.template = conf.templateManager; // should be pre-loaded with relevant fragments
 		
 		self.init();
@@ -1101,7 +1106,7 @@ library.component = library.component || {};
 	// Public
 	
 	ns.LinkExpand.prototype.work = function( el ) {
-		var self = this;
+		const self = this;
 		var links = el.querySelectorAll( 'a' );
 		Array.prototype.forEach.call( links, expand );
 		
@@ -1133,7 +1138,7 @@ library.component = library.component || {};
 	// private
 	
 	ns.LinkExpand.prototype.init = function() {
-		var self = this;
+		const self = this;
 		self.mimeMap = {
 			'image'       : image,
 			'audio'       : audio,
@@ -1151,7 +1156,7 @@ library.component = library.component || {};
 	}
 	
 	ns.LinkExpand.prototype.getMIME = function( url ) {
-		var self = this;
+		const self = this;
 		return new window.Promise( urlCheck );
 		function urlCheck( resolve, reject ) {
 			if ( !url || !url.length )
@@ -1222,7 +1227,7 @@ library.component = library.component || {};
 	}
 	
 	ns.LinkExpand.prototype.getHandler = function( a ) {
-		var self = this;
+		const self = this;
 		var url = a.href;
 		var ext = getFileExtension( url );
 		if ( !ext )
@@ -1246,7 +1251,7 @@ library.component = library.component || {};
 	
 	// Evaluate content and add a "link"
 	ns.LinkExpand.prototype.replace = function( a, content ) {
-		var self = this;
+		const self = this;
 		var src = a.href;
 		var file = null;
 		var fileMatch = src.match( /\/([-_%\w\s]+\.[\w]+)$/i);
@@ -1272,7 +1277,7 @@ library.component = library.component || {};
 			var as = el.getElementsByTagName( 'a' );
 			for( var a = 0; a < as.length; a++ ) {
 				as[ a ].href = 'javascript:void(0)';
-				as[ a ].onclick = content.secretOnClickFunction;
+				as[ a ].onclick = content.secretOnClickFunction;
 				break;
 			}
 		}
@@ -1281,7 +1286,7 @@ library.component = library.component || {};
 	}
 	
 	ns.LinkExpand.prototype.expandImage = function( a ) {
-		var self = this;
+		const self = this;
 		var src = a.href;
 		var conf = {
 			src : src,
@@ -1318,7 +1323,7 @@ library.component = library.component || {};
 	}
 	
 	ns.LinkExpand.prototype.expandAudio = function( a ) {
-		var self = this;
+		const self = this;
 		var src = a.href;
 		var conf = {
 			src : src,
@@ -1328,7 +1333,7 @@ library.component = library.component || {};
 	}
 	
 	ns.LinkExpand.prototype.expandVideo = function( a ) {
-		var self = this;
+		const self = this;
 		var src = a.href;
 		var conf = {
 			src : src,
@@ -1338,7 +1343,7 @@ library.component = library.component || {};
 	}
 	
 	ns.LinkExpand.prototype.expandFile = function( a, mime ) {
-		var self = this;
+		const self = this;
 		return '';
 		
 		typeClass = 'File';
@@ -1353,13 +1358,13 @@ library.component = library.component || {};
 	}
 	
 	ns.LinkExpand.prototype.expandText = function( a, mime ) {
-		var self = this;
+		const self = this;
 		return null;
 		//return a.href;
 	}
 	
 	ns.LinkExpand.prototype.expandOther = function( a, mime ) {
-		var self = this;
+		const self = this;
 		return null;
 		//return a.href;
 	}
@@ -1374,14 +1379,14 @@ library.component = library.component || {};
 		if ( !( this instanceof ns.TouchScroll ))
 			return new ns.TouchScroll( elementId );
 		
-		var self = this;
+		const self = this;
 		self.elId = elementId;
 		
 		self.init();
 	}
 	
 	ns.TouchScroll.prototype.init = function() {
-		var self = this;
+		const self = this;
 		self.prevY = 0;
 		self.prevX = 0;
 		self.target = document.getElementById( self.elId );
@@ -1395,14 +1400,14 @@ library.component = library.component || {};
 	}
 	
 	ns.TouchScroll.prototype.tStart = function( e ) {
-		var self = this;
+		const self = this;
 		var touch = e.touches[ 0 ];
 		self.prevY = touch.pageY;
 		self.prevX = touch.pageX;
 	}
 	
 	ns.TouchScroll.prototype.tMove = function( e ) {
-		var self = this;
+		const self = this;
 		var touch = e.touches[ 0 ];
 		var deltaY = self.prevY - touch.pageY;
 		var deltaX = self.prevX - touch.pageX;
@@ -1419,12 +1424,12 @@ library.component = library.component || {};
 	}
 	
 	ns.TouchScroll.prototype.tEnd = function( e ) {
-		var self = this;
+		const self = this;
 		var touch = e.touches[ 0 ];
 	}
 	
 	ns.TouchScroll.prototype.close = function() {
-		var self = this;
+		const self = this;
 		// unregister all the things
 	}
 	
@@ -1434,31 +1439,31 @@ library.component = library.component || {};
 // multiline input
 (function( ns, undefined ) {
 	ns.MultiInput = function( conf ) {
-		if ( !( this instanceof ns.MultiInput ))
-			return new ns.MultiInput( conf );
-		
 		const self = this;
+		library.component.EventEmitter.call( self );
+		
 		self.containerId = conf.containerId;
 		self.singleOnly = !!conf.singleOnly;
 		self.multiIsOn = !!conf.multiIsOn;
 		self.enterIsNewline = !!conf.enterIsNewline;
 		self.template = conf.templateManager;
-		self.onsubmit = conf.onsubmit;
-		self.onstate = conf.onstate;
-		self.onmode = conf.onmode || null;
 		
 		self.currentTAHeight = '';
+		self.currentInput = '';
 		self.isTyping = false;
 		
 		self.init();
 	}
+	
+	ns.MultiInput.prototype =
+		Object.create( library.component.EventEmitter.prototype );
 	
 	ns.MultiInput.prototype.inputTmpl = 'multiline-input-tmpl';
 	
 	// Public
 	
 	ns.MultiInput.prototype.submit = function() {
-		var self = this;
+		const self = this;
 		self.doSubmit();
 	}
 	
@@ -1467,12 +1472,17 @@ library.component = library.component || {};
 		if ( !self.ta )
 			return;
 		
+		if ( !str || !str.length )
+			return;
+		
 		const current = self.ta.value;
-		self.ta.value = current + str;
+		const update = current + str;
+		self.ta.value = update;
+		self.checkChange();
 	}
 	
 	ns.MultiInput.prototype.focus = function() {
-		var self = this;
+		const self = this;
 		if ( !self.ta )
 			return;
 		
@@ -1480,46 +1490,57 @@ library.component = library.component || {};
 	}
 	
 	ns.MultiInput.prototype.setValue = function( string ) {
-		var self = this;
+		const self = this;
 		if ( !self.ta )
 			return;
 		
+		if ( !string )
+			string = '';
+		
 		self.ta.value = string;
 		self.checkLineBreaks();
+		self.checkChange();
 	}
 	
 	ns.MultiInput.prototype.getValue = function() {
-		var self = this;
+		const self = this;
 		if ( !self.ta )
 			return;
 		
 		return self.ta.value;
 	}
 	
+	ns.MultiInput.prototype.getCursorPos = function() {
+		const self = this;
+		return self.ta.selectionStart;
+	}
+	
+	ns.MultiInput.prototype.getElement = function() {
+		const self = this;
+		return self.taWrap;
+	}
+	
 	ns.MultiInput.prototype.toggleMultiline = function( force ) {
-		var self = this;
+		const self = this;
 		if ( null == force )
 			self.multiIsOn = !self.multiIsOn;
 		else
 			self.multiIsOn = !!force;
 		
-		if ( self.onmode )
-			self.onmode( self.multiIsOn );
+		self.emit( 'multiline', self.multiIsOn );
 	}
 	
 	ns.MultiInput.prototype.setSingleOnly = function( singleOnly ) {
-		var self = this;
+		const self = this;
 		self.singleOnly = !!singleOnly;
 	}
 	
 	ns.MultiInput.prototype.close = function() {
-		var self = this;
+		const self = this;
+		self.closeEventEmitter();
 		delete self.containerId;
 		delete self.enterIsNewline;
 		delete self.template;
-		delete self.onsubmit;
-		delete self.onstate;
-		delete self.onmode;
 		delete self.taWrap;
 		delete self.ta;
 	}
@@ -1527,17 +1548,16 @@ library.component = library.component || {};
 	// Private
 	
 	ns.MultiInput.prototype.init = function() {
-		var self = this;
+		const self = this;
 		// setup
 		self.keyMap = {
-			'shiftTab'       : handleTab,
-			'shiftEnter'     : handleSpecialEnter,
-			'Enter'          : handleEnter,
+			'Tab'        : e => self.handleTab( e ),
+			'Enter'      : e => self.handleEnter( e ),
+			'ArrowUp'    : e => self.handleAUp( e ),
+			'ArrowDown'  : e => self.handleADown( e ),
+			'shiftTab'   : e => self.handleSpecialTab( e ),
+			'shiftEnter' : e => self.handleSpecialEnter( e ),
 		};
-		
-		function handleTab( e ) { self.handleTab( e ); }
-		function handleEnter( e ) { self.handleEnter( e ); }
-		function handleSpecialEnter( e ) { self.handleSpecialEnter( e ); }
 		
 		// build
 		var cont = document.getElementById( self.containerId );
@@ -1570,11 +1590,12 @@ library.component = library.component || {};
 		const self = this;
 		self.checkLineBreaks();
 		self.checkIsTyping();
+		self.checkChange();
 	}
 	
 	ns.MultiInput.prototype.handleKeyDown = function( e ) {
-		var self = this;
-		var eventStr = '';
+		const self = this;
+		let eventStr = '';
 		if ( e.ctrlKey )
 			eventStr = 'ctrl';
 		
@@ -1582,7 +1603,7 @@ library.component = library.component || {};
 			eventStr = 'shift';
 		
 		eventStr += e.code || e.key;
-		var handler = self.keyMap[ eventStr ];
+		const handler = self.keyMap[ eventStr ];
 		if ( !handler ) {
 			self.checkIsTyping();
 			return;
@@ -1594,7 +1615,13 @@ library.component = library.component || {};
 	}
 	
 	ns.MultiInput.prototype.handleTab = function( e ) {
-		var self = this;
+		const self = this;
+		const used = self.emit( 'tab', e );
+		return true;
+	}
+	
+	ns.MultiInput.prototype.handleSpecialTab = function( e ) {
+		const self = this;
 		e.preventDefault();
 		const currInput = self.ta.value;
 		const newInput = currInput + '\t';
@@ -1602,10 +1629,42 @@ library.component = library.component || {};
 		return true;
 	}
 	
+	ns.MultiInput.prototype.handleAUp = function( e ) {
+		const self = this;
+		const used = self.emit( 'arrow', 'up' );
+		if ( !used )
+			return true;
+		
+		e.preventDefault();
+		e.stopPropagation();
+		
+		return true;
+	}
+	
+	ns.MultiInput.prototype.handleADown = function( e ) {
+		const self = this;
+		const used = self.emit( 'arrow', 'down' );
+		if ( !used )
+			return true;
+		
+		e.preventDefault();
+		e.stopPropagation();
+		
+		return true;
+	}
+	
 	ns.MultiInput.prototype.handleEnter = function( e ) {
-		var self = this;
+		const self = this;
+		const used = self.emit( 'enter', e );
+		if ( used ) {
+			e.preventDefault();
+			e.stopPropagation();
+			return true;
+		}
+		
 		if ( self.enterIsNewline ) {
-			self.checkLineBreaks( true );
+			const addLB = true;
+			self.checkLineBreaks( addLB );
 			return true;
 		} else {
 			self.doSubmit( e );
@@ -1614,14 +1673,15 @@ library.component = library.component || {};
 	}
 	
 	ns.MultiInput.prototype.handleSpecialEnter = function( e ) {
-		var self = this;
+		const self = this;
 		// a newline was inserted in text area
-		self.checkLineBreaks( true );
+		const addLB = true;
+		self.checkLineBreaks( addLB );
 		return true;
 	}
 	
 	ns.MultiInput.prototype.doSubmit = function( e ) {
-		var self = this;
+		const self = this;
 		if ( e ) {
 			e.preventDefault();
 			e.stopPropagation();
@@ -1632,8 +1692,7 @@ library.component = library.component || {};
 			return;
 		
 		let str = self.ta.value;
-		if ( str.length && self.onsubmit )
-			self.onsubmit( str );
+		self.emit( 'submit', str );
 		
 		self.setValue( '' );
 		self.focus();
@@ -1653,8 +1712,11 @@ library.component = library.component || {};
 		if ( 2 === num )
 			newHeight = 'two-lines';
 		
-		if ( 3 <= num )
+		if ( 3 === num )
 			newHeight = 'three-lines';
+		
+		if ( 4 <= num )
+			newHeight = 'four-lines';
 		
 		if ( self.currentTAHeight === newHeight )
 			return;
@@ -1687,13 +1749,17 @@ library.component = library.component || {};
 		if ( self.isTypingHint )
 			self.isTypingHint.classList.toggle( 'blink-icon', true );
 		
-		const event = {
-			type : 'set-typing',
-			data : null,
-		};
+		sendTyping();
+		if ( null == self.typingInterval )
+			self.typingInterval = window.setInterval( sendTyping, 1000 * 8 );
 		
-		if ( self.onstate )
-			self.onstate( event );
+		function sendTyping() {
+			const event = {
+				type : 'set-typing',
+				data : null,
+			};
+			self.emit( 'state', event );
+		}
 	}
 	
 	ns.MultiInput.prototype.clearIsTyping = function() {
@@ -1702,6 +1768,9 @@ library.component = library.component || {};
 			return;
 		
 		self.isTyping = false;
+		if ( null != self.typingInterval )
+			window.clearInterval( self.typingInterval );
+		
 		if ( self.isTypingHint )
 			self.isTypingHint.classList.toggle( 'blink-icon', false );
 		
@@ -1709,9 +1778,66 @@ library.component = library.component || {};
 			type : 'clear-typing',
 			data : null,
 		};
+		self.emit( 'state', event );
+	}
+	
+	ns.MultiInput.prototype.checkChange = function() {
+		const self = this;
+		const inputStr = self.ta.value;
+		const inputPos = self.ta.selectionStart;
+		const inputSelection = self.ta.selectionStart !== self.ta.selectionEnd;
+		/*
+		console.log( 'checkChange', {
+			inputStr : inputStr,
+			inputPos : inputPos,
+			inputSelection : inputSelection,
+			currentStr : self.currentInput,
+			currentPos : self.currentPos,
+		});
+		*/
+		let strChange = false;
+		if ( inputStr !== self.currentInput )
+			strChange = true;
 		
-		if ( self.onstate )
-			self.onstate( event );
+		if ( !strChange )
+			return;
+		
+		const conf = {
+			string    : inputStr,
+			caretPos  : inputPos,
+			selection : inputSelection,
+		};
+		
+		self.currentInput = inputStr;
+		self.emit( 'change', conf );
+	}
+	
+})( library.component );
+
+(function( ns, undefined ) {
+	ns.ModMock = function() {
+		const self = this;
+		
+		self.init();
+	}
+	
+	// Public
+	
+	ns.ModMock.prototype.parse = function( str ) {
+		const self = this;
+		console.log( 'ModMock.parse', str );
+		return null;
+	}
+	
+	ns.ModMock.prototype.close = function() {
+		const self = this;
+	}
+	
+	// Private
+	
+	ns.ModMock.prototype.init = function() {
+		const self = this;
+		console.log( 'ModMock.init' );
 	}
 	
 })( library.component );
@@ -1721,7 +1847,7 @@ library.component = library.component || {};
 		if ( !( this instanceof ns.MsgBuilder ))
 			return new ns.MsgBuilder( conf );
 		
-		var self = this;
+		const self = this;
 		self.user = conf.user;
 		self.contact = conf.contact || {};
 		self.parser = conf.parser;
@@ -1738,22 +1864,22 @@ library.component = library.component || {};
 	// Public
 	
 	ns.MsgBuilder.prototype.message = function( msg ) {
-		var self = this;
+		const self = this;
 		return self.buildMessage( msg, self.messageTmpl );
 	}
 	
 	ns.MsgBuilder.prototype.action = function( msg ) {
-		var self = this;
+		const self = this;
 		return self.buildMessage( msg, self.actionTmpl );
 	}
 	
 	ns.MsgBuilder.prototype.notification = function( msg ) {
-		var self = this;
+		const self = this;
 		return self.buildNotification( msg );
 	}
 	
 	ns.MsgBuilder.prototype.log = function( msg ) {
-		var self = this;
+		const self = this;
 		var handler = self.logHandlers[ msg.type ];
 		if ( !handler ) {
 			console.log( 'MsgBuilder.log - unknown log type', msg );
@@ -1764,7 +1890,7 @@ library.component = library.component || {};
 	}
 	
 	ns.MsgBuilder.prototype.close = function() {
-		var self = this;
+		const self = this;
 		delete self.user;
 		delete self.contact;
 		delete self.parser;
@@ -1775,7 +1901,7 @@ library.component = library.component || {};
 	// Private
 	
 	ns.MsgBuilder.prototype.init = function() {
-		var self = this;
+		const self = this;
 		self.logHandlers = {
 			'message'      : message,
 			'action'       : action,
@@ -1801,7 +1927,7 @@ library.component = library.component || {};
 	}
 	
 	ns.MsgBuilder.prototype.buildMessage = function( data, tmplId ) {
-		var self = this;
+		const self = this;
 		var mId = data.mid || '';
 		var time = library.tool.getChatTime( data.time );
 		var speakerClass = 'contact sw2'; // sw 1/2 is a friendup theme class.
@@ -1854,7 +1980,7 @@ library.component = library.component || {};
 	}
 	
 	ns.MsgBuilder.prototype.buildNotification = function( data ) {
-		var self = this;
+		const self = this;
 		var conf = {
 			level : data.level,
 			message : data.message,
@@ -1894,247 +2020,6 @@ library.component = library.component || {};
 	
 })( library.component );
 
-
-// ConnState
-(function( ns, undefined ) {
-	ns.ConnState = function( elementId, conn ) {
-		const self = this;
-		self.id = elementId;
-		
-		self.init( conn );
-	}
-	
-	// Public
-	
-	ns.ConnState.prototype.close = function() {
-		const self = this;
-		delete self.id;
-		delete self.loading;
-		delete self.connecting;
-		delete self.reconnect;
-		delete self.denied;
-		
-		if ( !self.conn )
-			return;
-		
-		self.conn.close();
-		delete self.conn;
-	}
-	
-	// Priv
-	
-	ns.ConnState.prototype.init = function( parentConn ) {
-		const self = this;
-		self.build();
-		self.conn = new library.component.EventNode( 'conn-state', parentConn, eventSink );
-		self.conn.on( 'load', load );
-		self.conn.on( 'connect', connect );
-		self.conn.on( 'session', session );
-		self.conn.on( 'close', close );
-		self.conn.on( 'timeout', timeout );
-		self.conn.on( 'error', error );
-		self.conn.on( 'resume', resume );
-		self.conn.on( 'wait-reconnect', reconnect );
-		self.conn.on( 'access-denied', denied );
-		
-		function load( e ) { self.handleLoad( e ); }
-		function connect( e ) { self.handleConnect( e ); }
-		function session( e ) { self.handleSession( e ); }
-		function close( e ) { self.handleClose( e ); }
-		function timeout( e ) { console.log( 'ConnState.timeout', e ); }
-		function error( e ) { self.handleError( e ); }
-		function resume( e ) { self.handleResume( e ); }
-		function reconnect( e ) { self.handleReconnect( e ); }
-		function denied( e ) { self.handleDenied( e ); }
-		
-		function eventSink( ) {
-			console.log( 'ConnState - unknown event', arguments );
-		}
-	}
-	
-	ns.ConnState.prototype.handleLoad = function( data ) {
-		const self = this;
-		self.showUI( true );
-		self.hideProgressStates();
-		self.loading.classList.toggle( 'hidden', false );
-	}
-	
-	ns.ConnState.prototype.handleConnect = function( e ) {
-		const self = this;
-		self.showUI( true );
-		self.hideProgressStates();
-		self.connecting.classList.toggle( 'hidden', false );
-	}
-	
-	ns.ConnState.prototype.handleSession = function( sid ) {
-		const self = this;
-		self.showError( false );
-		self.isOnline = true;
-		self.showUI( false );
-	}
-	
-	ns.ConnState.prototype.handleClose = function( e ) {
-		const self = this;
-		self.showUI( true );
-	}
-	
-	ns.ConnState.prototype.handleError = function( err ) {
-		const self = this;
-		self.showUI( true );
-		self.hideErrorStates();
-		self.hideProgressStates();
-		self.showError( true );
-		self.errorMessage.textContent = err;
-		self.error.classList.toggle( 'hidden', false );
-		self.reconnect.classList.toggle( 'hidden', false );
-	}
-	
-	ns.ConnState.prototype.handleResume = function( event ) {
-		const self = this;
-		self.showUI( true );
-		self.hideProgressStates();
-		self.loading.classList.toggle( 'hidden', false );
-	}
-	
-	ns.ConnState.prototype.handleReconnect = function( event ) {
-		const self = this;
-		self.showError( false );
-		self.showUI( true );
-		self.hideErrorStates();
-		self.hideProgressStates();
-		self.connecting.classList.toggle( 'hidden', false );
-		self.reconnect.classList.toggle( 'hidden', false );
-		const cont = document.getElementById( 'conn-state-rc-bar-container' );
-		const bar = document.getElementById( 'conn-state-rc-bar' );
-		if ( !event.time ) {
-			hideBar();
-			return;
-		}
-		
-		if ( self.reconnectFrame ) {
-			window.cancelAnimationFrame( self.reconnectFrame );
-			self.reconnectFrame = null;
-		}
-		
-		bar.style.width = '100%';
-		let start = Date.now();
-		let end = event.time;
-		let total = end - start;
-		
-		step();
-		showBar();
-		
-		function step() {
-			self.reconnectFrame = window.requestAnimationFrame( update );
-		}
-		
-		function update() {
-			let now = Date.now();
-			if ( now > end ) {
-				hideBar();
-				return;
-			}
-			
-			let left = end - now;
-			let p = ( left / total );
-			let percent = Math.floor( p * 100 );
-			bar.style.width = percent + '%';
-			
-			step();
-		}
-		
-		function showBar() {
-			bar.classList.toggle( 'hidden', false );
-		}
-		
-		function hideBar() {
-			bar.classList.toggle( 'hidden', true );
-		}
-	}
-	
-	ns.ConnState.prototype.handleDenied = function( host ) {
-		const self = this;
-		self.showUI( true );
-		self.hideErrorStates();
-		self.showError( true );
-		self.denied.classList.toggle( 'hidden', false );
-	}
-	
-	ns.ConnState.prototype.showUI = function( show ) {
-		const self = this;
-		self.el.classList.toggle( 'hidden', !show );
-	}
-	
-	ns.ConnState.prototype.hideProgressStates = function() {
-		const self = this;
-		self.loading.classList.toggle( 'hidden', true );
-		self.connecting.classList.toggle( 'hidden', true );
-		self.reconnect.classList.toggle( 'hidden', true );
-	}
-	
-	ns.ConnState.prototype.hideErrorStates = function() {
-		const self = this;
-		self.denied.classList.toggle( 'hidden', true );
-		self.error.classList.toggle( 'hidden', true );
-	}
-	
-	ns.ConnState.prototype.showProgress = function( show ) {
-		const self = this;
-		self.progress.classList.toggle( 'hidden', !show );
-	}
-	
-	ns.ConnState.prototype.showError = function( show ) {
-		const self = this;
-		self.errorHead.classList.toggle( 'hidden', !show );
-		self.progressHead.classList.toggle( 'hidden', show );
-		self.oops.classList.toggle( 'hidden', !show );
-	}
-	
-	ns.ConnState.prototype.build = function() {
-		const self = this;
-		const ui = hello.template.getElement( 'conn-state-tmpl', {} );
-		self.el = document.getElementById( self.id );
-		self.el.appendChild( ui );
-		
-		// bind ui
-		let rcBtn = document.getElementById( 'conn-state-reconnect-btn' );
-		let qBtn = document.getElementById( 'conn-state-quit-btn' );
-		self.errorHead = document.getElementById( 'conn-state-error-head' );
-		self.progressHead = document.getElementById( 'conn-state-progress-head' );
-		self.oops = document.getElementById( 'conn-state-oops' );
-		self.yay = document.getElementById( 'conn-state-yay' );
-		self.loading = document.getElementById( 'conn-state-loading' );
-		self.connecting = document.getElementById( 'conn-state-connecting' );
-		self.reconnect = document.getElementById( 'conn-state-reconnect' );
-		self.denied = document.getElementById( 'conn-state-denied' );
-		self.error = document.getElementById( 'conn-state-error' );
-		self.errorMessage = document.getElementById( 'conn-state-error-msg' );
-		
-		rcBtn.addEventListener( 'click', reconnect, false );
-		qBtn.addEventListener( 'click', quit, false );
-		
-		function reconnect( e ) {
-			self.send({
-				type : 'reconnect',
-			});
-		}
-		
-		function quit( e ) {
-			self.send({
-				type : 'quit',
-			});
-		}
-	}
-	
-	ns.ConnState.prototype.send = function( event ) {
-		const self = this;
-		if ( !self.conn )
-			return;
-		
-		self.conn.send( event );
-	}
-	
-})( library.component );
 
 (function( ns, undefined ) {
 	ns.Search = function(
@@ -2974,7 +2859,7 @@ The menu will remove itself if it loses focus or a menu item is clicked
 		const viewWidth = document.body.clientWidth;
 		const viewHeight = document.body.clientHeight;
 		const middle = viewWidth / 2;
-		const originPos = self.getoriginPosition( originEl );
+		const originPos = self.getOriginPosition( originEl );
 		const align = self.getAlignment( middle, originPos );
 		let x1 = null;
 		let x2 = null;
@@ -3026,7 +2911,7 @@ The menu will remove itself if it loses focus or a menu item is clicked
 		}
 	}
 	
-	ns.MiniMenu.prototype.getoriginPosition = function( oEl ) {
+	ns.MiniMenu.prototype.getOriginPosition = function( oEl ) {
 		let bRekt = oEl.getBoundingClientRect();
 		return {
 			x1 : bRekt.x,
@@ -3181,11 +3066,16 @@ The menu will remove itself if it loses focus or a menu item is clicked
 				name   : View.i18n( 'i18n_create_room' ),
 				faIcon : 'fa-plus',
 			},
+			'load-hidden' : {
+				event  : 'load-hidden',
+				name   : View.i18n( 'i18n_show_hidden' ),
+				faIcon : 'fa-eye-slash',
+			},
 			'console' : {
 				event  : 'console',
 				name   : View.i18n( 'i18n_console' ),
 				faIcon : 'fa-tv',
-			}
+			},
 		};
 		
 		return self;
@@ -3209,15 +3099,19 @@ The menu will remove itself if it loses focus or a menu item is clicked
 		it will still be visible in the list, but not longer considered for sorting
 */
 ( function( ns, undefined ) {
-	ns.ListOrder = function( listElId, orderBy ) {
+	ns.ListOrder = function( listElId, orderBy, debug ) {
 		const self = this;
 		if ( !orderBy || !orderBy.length )
 			orderBy = [ 'time', 'name' ];
 		
 		self.list = null;
 		self.orderBy = orderBy;
+		self.debug = debug || false;
+		
+		self.needsReorder = [];
 		self.prio = [];
 		self.prio[ 0 ] = []; // 0, no prio
+		self.items = {};
 
 		self.init( listElId );
 	}
@@ -3250,6 +3144,9 @@ The menu will remove itself if it loses focus or a menu item is clicked
 			return;
 		}
 		
+		if ( self.debug )
+			console.log( 'add', itemConf );
+		
 		if ( self.checkIsAdded( cId ))
 			self.update( itemConf );
 		else
@@ -3271,6 +3168,9 @@ The menu will remove itself if it loses focus or a menu item is clicked
 			self.remove( cId );
 			return;
 		}
+		
+		if ( self.debug )
+			console.log( 'update', itemConf );
 		
 		self.updateInPrio( itemConf );
 	}
@@ -3301,6 +3201,8 @@ The menu will remove itself if it loses focus or a menu item is clicked
 			foundIn = prio;
 			return true;
 		});
+		
+		delete self.items[ clientId ];
 		return !!foundIn;
 	}
 	
@@ -3375,62 +3277,114 @@ The menu will remove itself if it loses focus or a menu item is clicked
 	
 	ns.ListOrder.prototype.checkIsAdded = function( id ) {
 		const self = this;
+		return !!self.items[ id ];
+		/*
 		const index = self.getItemIndex( id );
 		return index != null;
+		*/
 	}
 	
 	ns.ListOrder.prototype.addToPrio = function( conf ) {
 		const self = this;
+		const pri = self.normalizePriority( conf.priority );
 		const id = conf.clientId;
-		let pri = self.normalizePriority( conf.priority );
-		const time = conf.time || null;
-		const name = conf.name || '';
+		const item = {
+			id  : id,
+			pri : pri,
+		};
+		self.orderBy.forEach( type => {
+			item[ type ] = conf[ type ];
+		});
 		if ( !self.prio[ pri ])
 			self.prio[ pri ] = [];
 		
 		const prio = self.prio[ pri ];
-		prio.push({
-			id   : id,
-			time : time,
-			name : name,
-		});
+		prio.push( item );
+		self.items[ id ] = item;
+		if ( self.debug )
+			console.log( 'addToPrio', {
+				confpri : conf.priority,
+				pri     : pri,
+				item    : item,
+			});
 		
+		/*
 		if ( ( null == time ) && ( '' === name )) {
 			self.applyOrder( pri );
 			return;
 		}
-		
+		*/
+		const el = document.getElementById( id );
+		self.list.appendChild( el );
 		self.reorder( pri );
 	}
 	
 	ns.ListOrder.prototype.updateInPrio = function( conf ) {
 		const self = this;
 		const id = conf.clientId;
-		let pri = self.normalizePriority( conf.priority );
-		const prio = self.prio[ pri ];
-		if ( !prio ) {
-			console.log( 'ListOrder.updateInPrio - prio not found', {
-				conf : conf,
-				pri  : pri,
-				prio : self.prio,
-			});
+		const item = self.items[ id ];
+		if ( !item ) {
+			if ( self.debug )
+				console.log( 'no item for', {
+					conf  : conf,
+					items : self.items,
+				});
+			
 			return;
 		}
 		
-		prio.some( item => {
-			if ( item.id != id )
-				return false;
+		let pri = self.normalizePriority( item.priority );
+		self.orderBy.forEach( t => {
+			const val = conf[ t ];
+			if ( undefined === val )
+				return;
 			
-			item.time = conf.time;
-			item.name = conf.name;
-			return true;
+			item[ t ] = val;
 		});
+		
+		if ( self.debug )
+			console.log( 'updateInPrio', item );
 		
 		self.reorder( pri );
 	}
 	
 	ns.ListOrder.prototype.reorder = function( pri  ) {
 		const self = this;
+		if ( self.debug )
+			console.log( 'reorder', pri );
+		
+		if ( null != self.reorderTimeout ) {
+			window.clearTimeout( self.reorderTimeout );
+			self.reorderTimeout = window.setTimeout( allowReorder, 250 );
+			if ( -1 === self.needsReorder.indexOf( pri ))
+				self.needsReorder.push( pri );
+			
+			return;
+		}
+		
+		self.reorderTimeout = window.setTimeout( allowReorder, 250 );
+		//self.needsReorder = [];
+		self.doReorder( pri );
+		
+		function allowReorder() {
+			self.reorderTimeout = null;
+			if ( self.debug )
+				console.log( 'allowReorder', self.needsReorder );
+			
+			if ( self.needsReorder.length )
+				self.needsReorder.forEach( pri => {
+					self.doReorder( pri );
+				});
+			
+			self.needsReorder = [];
+		}
+	}
+	
+	ns.ListOrder.prototype.doReorder = function( pri ) {
+		const self = this;
+		if ( self.debug )
+			console.log( 'actually reorder', pri );
+		
 		const prio = self.prio[ pri ];
 		if ( !prio ) {
 			console.log( 'ListOrder.reorder - no prio found', {
@@ -3442,10 +3396,44 @@ The menu will remove itself if it loses focus or a menu item is clicked
 		
 		prio.sort(( a, b ) => {
 			let res = 0;
+			self.orderBy.some( t => {
+				const av = a[ t ];
+				const bv = b[ t ];
+				if ( undefined === av )
+					return;
+				
+				const sorter = typeof( av );
+				/*
+				console.log( 'sort', {
+					t      : t,
+					av     : av,
+					bv     : bv,
+					sorter : sorter,
+				});
+				*/
+				if ( 'number' == sorter )
+					res = sortByNumber( av, bv );
+				
+				if ( 'string' == sorter )
+					res = sortByString( av, bv );
+				
+				if ( 'boolean' == sorter )
+					res = sortByBool( av, bv );
+				
+				if ( 0 !== res )
+					return true;
+				else
+					return false;
+			});
+			
+			//console.log( 'res', res );
+			
+			/*
 			if ( null != a.time )
-				res = sortByTime( a, b );
+				res = sortByNumber( a, b );
 			else
-				res = sortByName( a, b );
+				res = sortByString( a, b );
+			*/
 			
 			return res;
 		});
@@ -3453,35 +3441,47 @@ The menu will remove itself if it loses focus or a menu item is clicked
 		
 		self.applyOrder( pri );
 		
-		function sortByTime( a, b ) {
-			at = a.time || 0;
-			bt = b.time || 0;
-			if ( at < bt )
+		function sortByNumber( an, bn ) {
+			if ( an < bn )
 				return 1;
-			if ( at > bt )
+			if ( an > bn )
 				return -1;
 			
-			if ( a.name && b.name )
-				return sortByName( a, b );
-			else
-				return 0;
+			return 0;
 		}
 		
-		function sortByName( a, b ) {
-			if ( !a.name || !b.name )
+		function sortByString( as, bs ) {
+			if ( !as || !bs )
 				return 0;
 			
-			const an = a.name.toLowerCase();
-			const bn = b.name.toLowerCase();
-			if ( '' === an )
+			as = as.toLowerCase();
+			bs = bs.toLowerCase();
+			if ( '' === as )
 				return -1;
-			if ( '' === bn )
+			if ( '' === bs )
 				return 1;
-			if ( an < bn )
+			if ( as < bs )
 				return -1;
-			if ( an > bn )
+			if ( as > bs )
 				return 1;
+			
 			return 0;
+		}
+		
+		function sortByBool( ab, bb ) {
+			/*
+			console.log( 'sortByPool', {
+				ab : ab,
+				bb : bb,
+			});
+			*/
+			if ( ab === bb )
+				return 0;
+			
+			if ( ab )
+				return -1;
+			else
+				return 1;
 		}
 	}
 	
@@ -3506,6 +3506,13 @@ The menu will remove itself if it loses focus or a menu item is clicked
 		reapply( nextEl, prio );
 		
 		function reapply( before, list ) {
+			if ( self.debug )
+				console.log( 'reapply', {
+					before   : before,
+					list     : list,
+					selflist : self.list,
+				});
+			
 			list.forEach( item => {
 				id = item.id;
 				const el = document.getElementById( id );
@@ -3516,7 +3523,17 @@ The menu will remove itself if it loses focus or a menu item is clicked
 					});
 					return;
 				}
-				self.list.insertBefore( el, before );
+				try {
+					self.list.insertBefore( el, before );
+				} catch( ex ) {
+					console.log( 'insertBefore ex', {
+						ex       : ex,
+						el       : el,
+						before   : before,
+						selflist : self.list,
+						self     : self,
+					});
+				}
 			});
 		}
 	}
@@ -3568,5 +3585,272 @@ The menu will remove itself if it loses focus or a menu item is clicked
 		
 		return pri;
 	}
+	
+})( library.component );
+
+
+// Overlay
+(function( ns, undefined ) {
+	ns.Overlay = function( anchorEl, conf ) {
+		const self = this;
+		library.component.EventEmitter.call( self );
+		self.anchor = anchorEl;
+		self.conf = conf;
+		self.isVisible = false;
+		
+		self.initOverlay();
+	}
+	
+	ns.Overlay.prototype =
+		Object.create( library.component.EventEmitter.prototype );
+	
+	// Public
+	
+	ns.Overlay.prototype.show = function() {
+		const self = this;
+		self.toggleVisible( true );
+	}
+	
+	ns.Overlay.prototype.toggle = function() {
+		const self = this;
+		self.toggleVisible();
+	}
+	
+	ns.Overlay.prototype.hide = function() {
+		const self = this;
+		self.toggleVisible( false );
+	}
+	
+	ns.Overlay.prototype.updatePosition = function() {
+		const self = this;
+		self.setPosition();
+	}
+	
+	ns.Overlay.prototype.close = function() {
+		const self = this;
+		self.closeOverlay();
+		throw new Error( 'Overlay.prototype.close() - implement in extension' );
+	}
+	
+	// Called by Overlay.init - must be implemented
+	
+	// .build must return a DOM object
+	ns.Overlay.prototype.build = function() {
+		const self = this;
+		throw new Error( 'Overlay.prototype.build() - implement in extension' );
+	}
+	
+	// .bind your ui events here
+	ns.Overlay.prototype.bind = function() {
+		const self = this;
+		throw new Error( 'Overlay.prototype.bind() - implement in extension' );
+	}
+	
+	// Private
+	
+	ns.Overlay.prototype.closeOverlay = function() {
+		const self = this;
+		self.closeEventEmitter();
+		if ( self.overlay )
+			self.overlay.parentNode.removeChild( self.overlay );
+		
+		delete self.overlay;
+		delete self.anchor;
+		delete self.pos;
+	}
+	
+	ns.Overlay.prototype.initOverlay = function() {
+		const self = this;
+		const id = friendUP.tool.uid( 'over' );
+		window.View.on( 'resize', e => self.setPosition( e ));
+		
+		const hidden = self.conf.show ? '' : 'hidden';
+		const conf = {
+			id     : id,
+			css    : self.conf.css || '',
+			hidden : hidden,
+		};
+		
+		self.overlay = hello.template.getElement( 'base-overlay-tmpl', conf );
+		console.log( 'overlay', self.overlay );
+		const insert = self.build();
+		self.overlay.appendChild( insert );
+		document.body.appendChild( self.overlay );
+		self.setPosition();
+		self.bind();
+	}
+	
+	ns.Overlay.prototype.toggleVisible = function( show ) {
+		const self = this;
+		if ( null == show )
+			self.isVisible = !self.isVisible;
+		else
+			self.isVisible = show;
+		
+		self.overlay.classList.toggle( 'hidden', !self.isVisible );
+		self.emit( 'visible', self.isVisible );
+	}
+	
+	ns.Overlay.prototype.setPosition = function() {
+		const self = this;
+		const pos = self.conf.position;
+		if ( pos.outside )
+			self.positionOutside( pos.outside );
+		else
+			self.positionInside( pos.inside );
+	}
+	
+	ns.Overlay.prototype.positionOutside = function( pos ) {
+		const self = this;
+		const screen = self.getScreenSpace();
+		const anchor = self.getElPosition( self.anchor );
+		/*
+		console.log( 'outside', {
+			pos    : pos,
+			screen : screen,
+			anchor : anchor,
+		});
+		*/
+		
+		let ap = null; // anchor point
+		let op = null; // offset point
+		if ( 'top-right' == pos.parent ) {
+			ap = {
+				x : anchor.x2,
+				y : anchor.y1,
+			};
+		}
+		
+		if ( 'top-left' == pos.parent ) {
+			ap = {
+				x : anchor.x1,
+				y : anchor.y1,
+			};
+		}
+		
+		op = {
+			x : ap.x + ( pos.offsetX || 0 ),
+			y : ap.y + ( pos.offsetY || 0 ),
+		}
+		
+		/*
+		console.log( 'possies', {
+			pos : pos,
+			screen : screen,
+			anchor : anchor,
+			ap  : ap,
+			op  : op,
+		});
+		*/
+		
+		if ( 'bottom-right' === pos.self ) {
+			self.overlay.style.right = ( screen.width - op.x ) + 'px';
+			self.overlay.style.bottom = ( screen.height - op.y ) + 'px';
+			if ( null != pos.height )
+				self.overlay.style.top = pos.height + 'px';
+			if ( null != pos.width )
+				self.overlay.style.left = pos.width + 'px';
+		}
+		
+		if ( 'bottom-left' === pos.self ) {
+			self.overlay.style.left = op.x + 'px';
+			self.overlay.style.bottom = ( screen.height - op.y ) + 'px';
+		}
+	}
+	
+	ns.Overlay.prototype.positionInside = function( pos ) {
+		const self = this;
+		//console.log( 'inside', pos );
+		const screen = self.getScreenSpace();
+		const anchor = self.getElPosition( self.anchor );
+		if ( pos.cover )
+			setCover();
+		else
+			setPos();
+		
+		function setCover() {
+			
+		}
+		
+		function setPos() {
+			let ap = null;
+			let op = null;
+			
+			// THE ANCHOR
+			
+			if ( 'left-center' == pos.parent ) {
+				const c = ( anchor.y1 + anchor.y2 ) / 2;
+				ap = {
+					x : anchor.x1,
+					y : c,
+				};
+			}
+
+			if ( 'bottom-center' == pos.parent ) {
+				const c = ( anchor.x1 + anchor.x2 ) / 2;
+				ap = {
+					x : c,
+					y : 0,
+				};
+			}
+			
+			// THE OTHER THING
+			
+			op = {
+				x : ap.x + pos.offsetX || 0,
+				y : ap.y + pos.offsetY || 0,
+			};
+			
+			const boxWidth = self.overlay.clientWidth;
+			/*
+			console.log( 'possies', {
+				pos : pos,
+				screen : screen,
+				anchor : anchor,
+				ap  : ap,
+				op  : op,
+				boxW : boxWidth,
+			});
+			*/
+			
+			if ( 'left-center' == pos.self ) {
+				const boxHeight = self.overlay.clientHeight;
+				self.overlay.style.left = op.x + 'px';
+				self.overlay.style.top = ( screen.height - op.y - ( boxHeight / 2 )) + 'px';
+				self.overlay.style.right = op.x + 'px';
+				self.overlay.style.maxWidth = pos.maxX;
+			}
+			
+			if ( 'bottom-center' == pos.self ) {
+				if ( pos.margin )
+					self.overlay.style.top = pos.margin;
+				self.overlay.style.left = ( screen.width - op.x - ( boxWidth / 2 )) + 'px';
+				self.overlay.style.bottom = op.y + 'px';
+				self.overlay.style.maxWidth = pos.maxX;
+				
+			}
+		}
+	}
+	
+	ns.Overlay.prototype.getScreenSpace = function() {
+		const self = this;
+		const screen = {
+			width  : document.body.clientWidth,
+			height : document.body.clientHeight,
+		};
+		return screen;
+	}
+	
+	ns.Overlay.prototype.getElPosition = function( el ) {
+		const self = this;
+		const elRekt = el.getBoundingClientRect();
+		return {
+			x1 : elRekt.x,
+			x2 : elRekt.right,
+			y1 : elRekt.y,
+			y2 : elRekt.bottom,
+		};
+	}
+	
 	
 })( library.component );

@@ -67,6 +67,7 @@ ns.ModCtrl.prototype.initializeModules = function() {
 		
 		modules.forEach( start );
 	}
+	
 	function start( module ) { self.start( module ); }
 	function isPresence( module ) { return !!( 'presence' === module.type ); }
 }
@@ -96,7 +97,6 @@ ns.ModCtrl.prototype.initializeClient = function( sessionId ) {
 ns.ModCtrl.prototype.addDefaultModules = function( modules, defaultUsername ) {
 	const self = this;
 	let modConfs = modules.map( buildConf );
-	log( 'modConfs', modConfs );
 	modConfs = modConfs.filter( mod => null != mod );
 	modConfs = self.sortModules( modConfs );
 	modConfs.forEach( create );
@@ -114,7 +114,6 @@ ns.ModCtrl.prototype.addDefaultModules = function( modules, defaultUsername ) {
 	}
 	
 	function create( modConf ) {
-		log( 'create', modConf );
 		self.create( modConf )
 	}
 }
@@ -242,12 +241,10 @@ ns.ModCtrl.prototype.sortModules = function( modList ) {
 		let simpleList = [];
 		let hasTreeroot = false;
 		let treerootConf = self.getModuleDefaultConf( 'treeroot' );
-		log( 'treerootconf', treerootConf );
 		mods.forEach( isAllowed );
 		return simpleList;
 		
 		function isAllowed( mod ) {
-			log( 'isAllowed', mod );
 			if ( 'presence' === mod.type ) {
 				simpleList.push( mod );
 				return;
@@ -400,7 +397,13 @@ ns.ModCtrl.prototype.stop = function( moduleId ) {
 
 ns.ModCtrl.prototype.getModuleDefaultConf = function( modType ) {
 	const self = this;
-	return global.config.server.defaults.module[ modType ] || null;
+	const mod = global.config.server.defaults.module[ modType ] || null;
+	if ( !mod )
+		return null;
+	
+	const str = JSON.stringify( mod );
+	const copy = JSON.parse( str );
+	return copy;
 }
 
 
@@ -613,7 +616,6 @@ ns.ModuleProxy.prototype.kill = function( callback ) {
 
 ns.ModuleProxy.prototype.handle = function( event, data ) {
 	const self = this;
-	log( 'MP.handle', event );
 	self.emit( event, data );
 }
 

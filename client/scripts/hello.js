@@ -17,8 +17,6 @@
 *                                                                              *
 *****************************************************************************©*/
 
-//"bcrypt"      : "^3.0.2",
-
 'use strict';
 var library = window.library || {};
 var friendUP = window.friendUP || {};
@@ -38,7 +36,6 @@ var hello = null;
 		self.module = null;
 		self.log = null;
 		self.login = null;
-		self.loading = null;
 		self.rtc = null;
 		self.template = null;
 		self.msgAlert = null;
@@ -47,6 +44,8 @@ var hello = null;
 		self.forceShowLogin = false;
 		self.isOnline = false;
 		self.pushies = [];
+		self.loaded = false;
+		self.loadedCallbacks = [];
 		self.resumeCallbacks = [];
 		
 		self.init();
@@ -67,7 +66,9 @@ var hello = null;
 		const self = this;
 		self.service = service;
 		if ( self.pushies && self.pushies.length )
-			self.pushies.forEach( extra => self.service.handlePushNotification( extra ));
+			self.pushies.forEach( e => {
+				self.service.handleNotification( e.extra, e.view );
+			});
 	}
 	
 	ns.Hello.prototype.getIdConf = function() {
@@ -80,7 +81,7 @@ var hello = null;
 			avatar  : self.avatarStatus,
 			email   : id.email,
 			level   : id.level,
-		}
+		};
 		
 		return conf;
 	}
@@ -94,7 +95,7 @@ var hello = null;
 		const bundle = {
 			type :  'authid',
 			data : {
-				tokens : {
+				tokens  : {
 					authId : self.app.authId,
 					userId : self.identity.fupId,
 				},
@@ -109,7 +110,11 @@ var hello = null;
 		const self = this;
 		self.avatarStatus = avatar;
 		hello.identity.updateAvatar( avatar );
-		api.ApplicationStorage.set( 'avatar', avatar, setBack );
+		api.ApplicationStorage.set( 'avatar', avatar )
+			.then( setBack )
+			.catch( err => {
+				console.log( 'hello.updateAvatar - storage err', err );
+			});
 		
 		function setBack( res ) {
 			//console.log( 'updateAvatar.setBack', res );
@@ -119,19 +124,27 @@ var hello = null;
 	ns.Hello.prototype.timeNow = function( str ) {
 		const self = this;
 		const now = Date.now();
+		if ( null == self.startTiming ) {
+			self.startTiming = now;
+			self.lastTiming = now;
+			console.log( 'Timing: ' + str, 0 );
+			return;
+		}
+		
 		const sinceBeginning = now - self.startTiming;
 		const sinceLast = now - self.lastTiming;
 		console.log( 'Timing: ' + str, {
-			total : sinceBeginning,
-			last  : sinceLast,
+			'total'     : sinceBeginning,
+			'last step' : sinceLast,
 		});
 		self.lastTiming = now;
 	}
 	
-	// Priv
+	// Private
 	
 	ns.Hello.prototype.init = function() {
 		const self = this;
+		self.timeNow( 'init' );
 		if ( self.config.dev )
 			self.app.setDev( self.config.host );
 		
@@ -146,42 +159,50 @@ var hello = null;
 	}
 	
 	ns.Hello.prototype.run = function( fupConf ) {
-		console.log( 'run' );
 		const self = this;
+		self.timeNow( 'run' );
 		self.app.setSingleInstance( true );
+		self.main = new library.system.Main();
 		self.listenSystemEvents();
-		self.startTiming = Date.now();
-		self.lastTiming = self.startTiming;
-		self.showLoadingTimeout = window.setTimeout( showLoading, 1000 );
-		function showLoading() {
-			self.timeNow( 'show loading' );
-			self.showLoadingTimeout = null;
-			self.showLoading();
-		}
-		
 		if ( !self.config ) {
-			self.showLoadingStatus({
+			self.showConnStatus({
 				type : 'error',
 				data : Application.i18n( 'i18n_local_config_not_found' ),
 			});
 			return;
 		}
 		
-		if ( fupConf )
-			self.config.run = fupConf;
+		self.config.run = fupConf || null;
 		
 		self.config.emojii = window.emojii_conf;
 		self.config.protocol = document.location.protocol + '//';
 		
-		self.msgAlert = new api.SoundAlert( 
-			'webclient/apps/FriendChat/res/Friend_Hello.wav' );
+		try {
+			self.msgAlert = new api.SoundAlert(
+				'webclient/apps/FriendChat/res/Friend_Hello.wav' );
+		} catch( ex ) {
+			self.msgAlert = null;
+			console.log( 'failed to initialize SoundAlert', ex );
+		}
 		
+		self.timeNow( 'loadCommonFragments' );
 		self.loadCommonFragments()
 			.then( fragsLoaded )
-			.catch( e => error( 'ERR_LOAD_FRAGMENTS' ));
+			.catch( err => { 
+				console.log( 'loadCommonFragments - err', err );
+				error( 'ERR_LOAD_FRAGMENTS' );
+		});
 		
 		function fragsLoaded() {
 			self.timeNow( 'fragmentsLoaded' );
+			let doRun = false;
+			let openMinimized = false;
+			if ( self.config.run )
+				openMinimized = self.handleRunConf();
+			
+			self.openMain( openMinimized );
+			self.doLoaded();
+			
 			getUser();
 		}
 		
@@ -189,27 +210,44 @@ var hello = null;
 			self.timeNow( 'getUser start' );
 			self.getUserInfo()
 				.then( userInfoBack )
-				.catch( e => error( 'ERR_LOAD_USERINFO' ));
+				.catch( e => {
+					console.log( 'e', e );
+					error( 'ERR_LOAD_USERINFO' );
+				});
 		}
 		
-		function userInfoBack( data ) {
+		function userInfoBack( userInfo ) {
 			self.timeNow( 'user info loaded' );
-			if ( !data ) {
-				self.showLoadingStatus({
+			if ( !userInfo ) {
+				self.showConnStatus({
 					type : 'error',
 					data : Application.i18n( 'i18n_no_user_data_returned' ),
 				});
 				return;
 			}
 			
-			hello.identity = new library.component.Identity( data );
+			hello.identity = new library.component.Identity( userInfo );
 			if ( self.config.dev )
 				self.app.setDev( null, hello.identity.alias );
 			
-			if ( 'API' === self.identity.level )
+			if ( 'API' === self.identity.level ) {
 				self.runGuest();
-			else
+				return;
+			}
+			
+			self.timeNow( 'getUserAvatar' );
+			self.getUserAvatar()
+				.then( avaDone )
+				.catch( avaErr );
+			
+			function avaDone() {
 				self.runUser();
+			}
+			
+			function avaErr( err ) {
+				console.log( 'getUserAvatar failed??', err );
+				self.runUser();
+			}
 		}
 		
 		function error( err ) {
@@ -217,22 +255,16 @@ var hello = null;
 		}
 	}
 	
-	ns.Hello.prototype.runUser = function() {
+	ns.Hello.prototype.runUser = function( userImage ) {
 		const self = this;
-		console.log( 'runUser' );
-		self.getUserAvatar()
-			.then( avaDone )
-			.catch( avaDone );
-			
-		function avaDone( blah ) {
-			console.log( 'avaDone - err?', blah );
-			self.loadHostConfig()
-				.then( confBack )
-				.catch( confErr );
-		}
+		self.timeNow( 'runUser - load host config' );
+		self.loadHostConfig()
+			.then( confBack )
+			.catch( confErr );
 		
 		function confBack( hostConf ) {
 			self.finalizeConfig( hostConf );
+			self.main.setTitle( self.config.appName );
 			self.initDormant();
 			self.initSystemModules( connBack );
 		}
@@ -248,15 +280,14 @@ var hello = null;
 	
 	ns.Hello.prototype.runGuest = function() {
 		const self = this;
-		console.log( 'runGuest' );
-		self.closeLoading();
+		self.timeNow( 'runGuest' );
 		self.doGuestThings();
 	}
 	
 	ns.Hello.prototype.initDormant = function() {
 		const self = this;
 		if ( self.config.dormantIsASecurityHoleSoLetsEnableItYOLO ) {
-			console.log( '--- ENABLING DORMANT APPARENTLY ---', self.config );
+			console.log( '--- ENABLING DORMANT APPARENTLY ---' );
 			self.dormantEnabled = true;
 			
 			if ( self.config.iWouldLikeOtherAppsToReadMyLogsBecausePrivacyIsOverrated )
@@ -272,6 +303,8 @@ var hello = null;
 		self.app.on( 'notification', e => self.handleNotie( e ));
 		self.app.on( 'app-resume', e => self.handleAppResume( e ));
 		self.app.on( 'userupdate', e => self.handleUserUpdate( e ));
+		
+		self.app.on( 'conn-state', e => self.handleConnState( e ));
 	}
 	
 	ns.Hello.prototype.finalizeConfig = function( hostConf ) {
@@ -279,6 +312,7 @@ var hello = null;
 		self.timeNow( 'honst config loaded' );
 		library.tool.mergeObjects( self.config, hostConf );
 		self.config.appName = self.config.appName || 'Friend Chat';
+		console.log( 'setConfig', hello.config );
 		self.app.setConfig( hello.config );
 	}
 	
@@ -309,21 +343,26 @@ var hello = null;
 		});
 	}
 	
-	ns.Hello.prototype.getUserAvatar = function() {
+	ns.Hello.prototype.getUserAvatar = function( userImage ) {
 		const self = this;
 		return new Promise(( resolve, reject ) => {
 			let current = null;
 			let check = null;
+			if ( userImage && userImage.length )
+				current = userImage;
 			
 			loadCheck()
 				.then( checkBack )
 				.catch( reject );
-				
+			
 			function checkBack( avaPart ) {
 				check = avaPart || null;
-				loadCurrent()
-					.then( currentBack )
-					.catch( reject );
+				if ( current )
+					checkFreshness();
+				else
+					loadCurrent()
+						.then( currentBack )
+						.catch( reject );
 			}
 			
 			function currentBack( avatar ) {
@@ -355,7 +394,6 @@ var hello = null;
 					self.setAvatar( current );
 					resolve();
 				}
-				
 			}
 		});
 		
@@ -402,7 +440,12 @@ var hello = null;
 		
 		function loadCheck() {
 			return new Promise(( resolve, reject ) => {
-				api.ApplicationStorage.get( 'avatar-check', checkBack );
+				api.ApplicationStorage.get( 'avatar-check' )
+					.then( checkBack )
+					.catch( err => {
+						console.log( 'getUserAvatar - loadCheck storage err', err );
+					});
+				
 				function checkBack( checkObj ) {
 					resolve( checkObj.data );
 				}
@@ -430,7 +473,8 @@ var hello = null;
 			
 			function commonOmNoms( fileContent ) {
 				fileContent = Application.i18nReplaceInString( fileContent );
-				hello.commonFragments = fileContent;
+				self.app.setFragments( fileContent );
+				//hello.commonFragments = fileContent;
 				if ( mainLoaded && liveLoaded )
 					resolve();
 				else 
@@ -457,7 +501,7 @@ var hello = null;
 		});
 	}
 	
-	ns.Hello.prototype.loadHostConfig = function( doneBack ) {
+	ns.Hello.prototype.loadHostConfig = function() {
 		const self = this;
 		return new Promise(( resolve, reject ) => {
 			load( resolve, reject );
@@ -489,11 +533,10 @@ var hello = null;
 			self.loadTimeout = window.setTimeout( loadingTimeout, 1000 * 15 );
 			
 			function load( success, loadErr ) {
-				if ( self.loading )
-					self.showLoadingStatus({
-						type : 'load',
-						data : Date.now(),
-					});
+				self.showConnStatus({
+					type : 'load',
+					data : Date.now(),
+				});
 				
 				const conf = {
 					verb    : 'get',
@@ -516,7 +559,7 @@ var hello = null;
 				self.hostConfRequest = null;
 				let delay = 1000 * 5;
 				let reconnectTime = Date.now() + delay;
-				self.showLoadingStatus({
+				self.showConnStatus({
 					type : 'wait-reconnect',
 					data : {
 						time : reconnectTime,
@@ -538,7 +581,7 @@ var hello = null;
 					return;
 				}
 				
-				var hostConf = library.tool.objectify( response );
+				const hostConf = library.tool.objectify( response );
 				if ( !hostConf ) {
 					const errMsg = Application.i18n( 'i18n_host_config_failed_invalid' )
 						+ ' ' + url;
@@ -589,15 +632,11 @@ var hello = null;
 			self.timeNow( 'ws connected' );
 			if( err ) {
 				console.log( 'connBack - conn err', err );
-				self.showLoadingStatus( err );
+				self.showConnStatus( err );
 				return;
 			}
 			
 			self.connected = true;
-			self.closeLoading( loadingClosed );
-		}
-		
-		function loadingClosed() {
 			callback();
 		}
 		
@@ -606,132 +645,24 @@ var hello = null;
 	
 	ns.Hello.prototype.showError = function( err ) {
 		const self = this;
-		if ( !self.loading )
-			return;
-		
 		const error = {
 			type : 'error',
 			data : err,
 		};
-		self.showLoadingStatus( error );
+		self.showConnStatus( error );
 	}
 	
-	ns.Hello.prototype.showLoading = function() {
+	ns.Hello.prototype.showConnStatus = function( state ) {
 		const self = this;
-		if ( self.showLoadingTimeout ) {
-			window.clearTimeout( self.showLoadingTimeout );
-			self.showLoadingTimeout = null;
-		}
-		
-		self.closeLoadingTimeout = window.setTimeout( canCloseNow, 3000 );
-		self.loading = new library.view.Loading( reconnect, loadingClosed );
-		function canCloseNow() {
-			self.closeLoadingTimeout = null;
-			if ( self.closeLoadingPlease )
-				self.closeLoading();
-		}
-		
-		function reconnect( e ) {
-			self.loadHostConfig()
-				.then( loadOk )
-				.catch( loadErr );
-			
-			function loadOk( res ) {
-				self.finalizeConfig( res );
-			}
-			
-			function loadErr( err ) {
-				console.log( 'showLoading, reconnect - failed to load host config', err );
-			}
-		}
-		
-		function loadingClosed() {
-			self.loadingClosed();
-		}
-	}
-	
-	ns.Hello.prototype.showLoadingStatus = function( status ) {
-		const self = this;
-		if ( 'session' === status.type )
-			return;
-		
-		if ( self.showLoadingTimeout
-			&& (   'error' === status.type
-				|| 'timeout' === status.type )
-		) {
-			self.showLoading();
-		}
-		
-		if ( !self.loading )
-			return;
-		
-		if ( self.closeLoadingPlease && 'error' === status.type ) {
-			self.closeLoadingPlease = false;
-			self.closeLoadingCallback = null;
-		}
-		
-		self.loading.setState( status );
-	}
-	
-	ns.Hello.prototype.closeLoading = function( callback ) {
-		const self = this;
-		self.timeNow( 'closeLoading', self.showLoadingTimeout );
-		if ( self.showLoadingTimeout ) {
-			window.clearTimeout( self.showLoadingTimeout );
-			self.showLoadingTimeout = null;
-			done();
-			return;
-		}
-		
-		if ( self.closeLoadingTimeout ) {
-			self.closeLoadingPlease = true;
-			self.closeLoadingCallback = callback;
-			return;
-		}
-		
-		if ( !self.loading ) {
-			done();
-			return;
-		}
-		
-		self.loading.close();
-		self.loading = null;
-		done();
-		
-		function done() {
-			callback = callback || self.closeLoadingCallback;
-			delete self.closeLoadingCallback;
-			
-			if ( callback )
-				callback( true );
-		}
-	}
-	
-	ns.Hello.prototype.loadingClosed = function() {
-		const self = this;
-		if ( self.loading )
-			self.loading.close();
-		
-		if ( self.closeLoadingTimeout ) {
-			window.clearTimeout( self.closeLoadingTimeout );
-			self.closeLoadingTimeout = null;
-		}
-		
-		self.loading = null;
-		
-		if ( self.closeLoadingCallback ) {
-			let callback = self.closeLoadingCallback;
-			delete self.closeLoadingCallback;
-			callback( true );
-		}
-		
-		if ( !self.connected )
-			self.checkQuit();
+		const event = {
+			type : 'conn-state',
+			data : state,
+		};
+		self.app.toAllViews( event );
 	}
 	
 	ns.Hello.prototype.doGuestThings = function() {
 		const self = this;
-		console.log( 'doGuestThings', self.config.run );
 		if (
 			!self.config.run ||
 			!self.config.run.type ||
@@ -743,6 +674,17 @@ var hello = null;
 		
 		const conf = self.config.run;
 		if ( 'live-invite' === conf.type ) {
+			console.log( 'live-invite', conf );
+			const data = conf.data;
+			if ( data.name && data.permissions ) {
+				const opts = {
+					name        : data.name,
+					permissions : data.permissions,
+				};
+				setupUser( opts );
+				return;
+			}
+			
 			const randomName = library.tool.getName();
 			const askConf = {
 				name          : randomName,
@@ -835,16 +777,12 @@ var hello = null;
 			
 			function connBack( err, res ) {
 				if ( err ) {
-					self.showLoadingStatus( err );
+					self.showConnStatus( err );
 					return;
 				}
 				
 				self.connected = true;
-				self.closeLoading( loadClosed );
-			}
-			
-			function loadClosed() {
-				callback();
+				callback()
 			}
 			
 			function onWSState( e ) { self.updateConnState( e ); }
@@ -866,10 +804,6 @@ var hello = null;
 			self.login = null;
 		}
 		
-		if ( self.main )
-			self.main.logout();
-			self.main = null;
-		
 		self.login = new library.system.Login( null, onlogin, onclose );
 		function onlogin( account ) {
 			self.loggedIn = true;
@@ -884,8 +818,8 @@ var hello = null;
 			hello.log.positive( 
 				Application.i18n( 'i18n_logged_in_as' ) + ': ' + account.name );
 			
-			self.timeNow( 'logged in, open main' );
-			self.doMain( account );
+			self.timeNow( 'logged in, update main' );
+			self.main.setAccountLoaded( account );
 		}
 		
 		function onclose() {
@@ -923,13 +857,32 @@ var hello = null;
 		}
 	}
 	
-	ns.Hello.prototype.doMain = function( account ) {
+	ns.Hello.prototype.openMain = function( openMinimized ) {
 		const self = this;
-		self.main = new library.system.Main({
-			parentView : window.View,
-			account    : account,
-			identity   : hello.identity,
-		});
+		self.timeNow( 'openMain' );
+		self.main.open( openMinimized );
+	}
+	
+	ns.Hello.prototype.handleRunConf = function() {
+		const self = this;
+		const data = self.config.run;
+		if ( 'live-invite' === data.type )
+			return true;
+		
+		if ( data.events )
+			return self.handleRunEvents( data.events );
+		
+		return false;
+	}
+	
+	ns.Hello.prototype.handleRunEvents = function( events ) {
+		const self = this;
+		if ( !events || !events.length )
+			return false;
+		
+		events.forEach( e => hello.app.handleSystem( e ));
+		
+		return true;
 	}
 	
 	ns.Hello.prototype.reconnect = function() {
@@ -939,7 +892,6 @@ var hello = null;
 	
 	ns.Hello.prototype.updateConnState = function( state ) {
 		const self = this;
-		console.log( 'updateConnState', state );
 		const isOnline = checkIsOnline( state );
 		self.updateIsOnline( isOnline );
 		if (   'error' === state.type
@@ -950,10 +902,7 @@ var hello = null;
 			self.connected = false;
 		}
 		
-		if ( self.loading ) {
-			self.showLoadingStatus( state );
-			return;
-		}
+		self.showConnStatus( state );
 		
 		if ( 'end' === state.type && !self.triedRelogin ) {
 			if ( !self.triedRelogin )
@@ -963,9 +912,6 @@ var hello = null;
 			
 			return;
 		}
-		
-		if ( self.main )
-			self.main.setConnState( state );
 		
 		function checkIsOnline( state ) {
 			if ( 'session' !== state.type )
@@ -1056,7 +1002,12 @@ var hello = null;
 			}
 			
 			hello.identity.updateAvatar( avatar );
-			api.ApplicationStorage.set( 'avatar', avatar, setBack );
+			api.ApplicationStorage.set( 'avatar', avatar )
+				.then( setBack )
+				.catch( err => {
+					console.log( 'Hello.setAvatar - set err', err );
+				} );
+			
 			function setBack( res ) {
 				done();
 				resolve();
@@ -1072,13 +1023,18 @@ var hello = null;
 				self.module.updateAvatar( self.avatarStatus );
 			
 			if ( self.main )
-				self.main.updateAvatar( self.avatarStatus );
+				self.main.updateAvatar();
 		}
 		
 		function clearCache() {
 			return new Promise(( resolve, reject ) => {
 				hello.identity.updateAvatar( null );
-				api.ApplicationStorage.set( 'avatar', null, clearBack );
+				api.ApplicationStorage.set( 'avatar', null )
+					.then( clearBack )
+					.catch( err => {
+						console.log( 'Hello.setAvatar - clearCache err', err );
+					});
+				
 				function clearBack( res ) {
 					resolve();
 				}
@@ -1087,7 +1043,12 @@ var hello = null;
 		
 		function loadFromCache() {
 			return new Promise(( resolve, reject ) => {
-				api.ApplicationStorage.get( 'avatar', loadBack );
+				api.ApplicationStorage.get( 'avatar' )
+					.then( loadBack )
+					.catch( err => {
+						console.log( 'Hello.setAvatar - loadFromCache err', err );
+					});
+				
 				function loadBack( res ) {
 					if ( !res.data ) {
 						api.ApplicationStorage.set( 'avatar', current );
@@ -1100,6 +1061,12 @@ var hello = null;
 				}
 			});
 		}
+	}
+	
+	ns.Hello.prototype.setSettings = function( settings ) {
+		const self = this;
+		self.app.setSettings( settings );
+		api.ApplicationStorage.set( 'account-settings', settings );
 	}
 	
 	// TODO : reopen views
@@ -1177,8 +1144,7 @@ var hello = null;
 		if ( !self.msgAlert )
 			return;
 		
-		if ( hello.account.settings.msgAlert )
-			self.msgAlert.play();
+		self.msgAlert.play();
 	}
 	
 	ns.Hello.prototype.receiveMessage = function( msg ) {
@@ -1186,28 +1152,23 @@ var hello = null;
 		console.log( 'Hello.receiveMessage - NOOP', msg );
 	}
 	
-	ns.Hello.prototype.handlePushNotie = function( event ) {
+	ns.Hello.prototype.handlePushNotie = function( event, view ) {
 		const self = this;
-		if ( !event || !event.extra ) {
-			console.log( 'hello.handlePushNotie - not valid event', event );
-			return;
-		}
-		
-		if ( !event.clicked ) {
-			console.log( 'hello.handlePushNotie - not clicked, discarding', event );
-			return;
-		}
-		
-		if ( null != self.resumeTimeout || !self.isOnline ) {
-			self.registerOnResume( onResume );
+		if ( !self.loaded ) {
+			self.registerOnLoaded( onLoaded );
 			return;
 			
-			function onResume() {
+			function onLoaded() {
 				self.handlePushNotie( event );
 			}
 		}
 		
-		let extra = friendUP.tool.parse( event.extra );
+		if ( !event || !event.extra ) {
+			console.log( 'hello.handlePushNotie - not valid event', event );
+			return false;
+		}
+		
+		const extra = friendUP.tool.parse( event.extra );
 		if ( !extra ) {
 			console.log( 'hello.handlePushNotie - invalid data', {
 				event : event,
@@ -1216,28 +1177,52 @@ var hello = null;
 			return;
 		}
 		
-		if ( self.service )
-			self.service.handlePushNotification( extra );
-		else
-			self.pushies.push( extra );
-	}
-	
-	ns.Hello.prototype.handleNotie = function( event ) {
-		const self = this;
-		if ( !event || !event.extra ) {
-			console.log( 'hello.handleNotie - invalid event', event );
-			return;
+		if ( !event.clicked ) {
+			console.log( 'hello.handlePushNotie - not clicked, discarding', event );
+			return false;
 		}
 		
-		if ( !event.clicked )
-			return;
+		if ( !self.service && !view ) {
+			self.fakeView = true;
+			const roomName = event.title;
+			extra.isPrivate = true;
+			view = new library.view.PresenceChat( null, roomName, !!extra.isPrivate );
+		}
 		
 		if ( null != self.resumeTimeout || !self.isOnline ) {
 			self.registerOnResume( onResume );
 			return;
 			
 			function onResume() {
-				console.log( 'handleNotie.onResume', event );
+				self.handlePushNotie( event, view );
+			}
+		}
+		
+		if ( self.service )
+			self.service.handleNotification( extra, view );
+		else
+			self.pushies.push({
+				extra : extra,
+				view  : view,
+			});
+	}
+	
+	ns.Hello.prototype.handleNotie = function( event ) {
+		const self = this;
+		console.trace( 'handleNotie', event );
+		if ( !event || !event.extra ) {
+			console.log( 'hello.handleNotie - invalid event', event );
+			return false;
+		}
+		
+		if ( !event.clicked )
+			return false;
+		
+		if ( null != self.resumeTimeout || !self.isOnline ) {
+			self.registerOnResume( onResume );
+			return;
+			
+			function onResume() {
 				self.handleNotie( event );
 			}
 		}
@@ -1249,9 +1234,11 @@ var hello = null;
 		}
 		
 		if ( self.service )
-			self.service.handlePushNotification( extra );
+			self.service.handleNotification( extra );
 		else
-			self.pushies.push( extra );
+			self.pushies.push({
+				extra : extra,
+			});
 	}
 	
 	ns.Hello.prototype.handleAppResume = function( event ) {
@@ -1267,12 +1254,7 @@ var hello = null;
 		self.resumeTimeout = window.setTimeout( resume, 1000 );
 		self.reconnect();
 		
-		self.app.toAllViews({
-			type : 'app-online',
-			data : false,
-		});
-		
-		self.main.setConnState({
+		self.showConnStatus({
 			type : 'resume',
 			data : Date.now(),
 		});
@@ -1281,6 +1263,18 @@ var hello = null;
 			self.resumeTimeout = null;
 			self.doResume();
 		}
+	}
+	
+	ns.Hello.prototype.registerOnLoaded = function( fn ) {
+		const self = this;
+		self.loadedCallbacks.push( fn );
+	}
+	
+	ns.Hello.prototype.doLoaded = function() {
+		const self = this;
+		self.loaded = true;
+		self.loadedCallbacks.forEach( fn => fn());
+		self.loadedCallbacks = null;
 	}
 	
 	ns.Hello.prototype.registerOnResume = function( fn ) {
@@ -1304,7 +1298,6 @@ var hello = null;
 			.catch( fail );
 			
 		function infoBack( userInfo ) {
-			console.log( 'handleUserUpdate.infoBack', userInfo );
 			self.getUserAvatar();
 		}
 			
@@ -1318,16 +1311,13 @@ var hello = null;
 
 // MAIN
 (function( ns, undefined ) {
-	ns.Main = function( conf ) {
-		if ( !( this instanceof ns.Main ))
-			return new ns.Main( conf );
-		
+	ns.Main = function() {
 		const self = this;
-		self.account = conf.account;
-		self.parentView = conf.parentView || window.View;
+		self.parentView = window.View;
 		self.viewReady = false;
 		self.advancedUI = false;
 		self.isLogout = false;
+		self.title = null;
 		
 		self.init();
 	}
@@ -1342,12 +1332,58 @@ var hello = null;
 		self.view.activate();
 	}
 	
-	ns.Main.prototype.setConnState = function( state ) {
+	ns.Main.prototype.open = function( openMinimized ) {
 		const self = this;
-		self.view.send({
-			type : 'conn-state',
-			data : state,
-		});
+		if ( null == self.openMinimized )
+			self.openMinimized = openMinimized || false;
+		
+		if ( 'init-done' != self.state )
+			return;
+		
+		const initConf = {
+			mainFragments : hello.mainCommonFragments,
+			identity      : hello.identity,
+			recentHistory : self.recentHistory,
+		};
+		
+		/*if ( self.advancedUI )
+			self.openAdvView( initConf, viewClose );
+		else
+			self.openSimpleView( initConf, viewClose );
+		*/
+		self.openSimpleView( initConf, viewClose );
+		self.view.on( 'ready', ready );
+		
+		self.bindView();
+		self.setMenuItems();
+		
+		function ready( msg ) {
+			hello.timeNow( 'main open' );
+			if ( self.title )
+				self.setTitle();
+			
+			if ( !self.account )
+				return;
+			
+			self.initView();
+		}
+		
+		function viewClose( msg ) {
+			self.view = null;
+			if ( self.isLogout )
+				return;
+			
+			self.quit();
+		}
+	}
+	
+	ns.Main.prototype.setAccountLoaded = function( acc ) {
+		const self = this;
+		self.account = acc;
+		if ( !self.view )
+			return;
+		
+		self.initView();
 	}
 	
 	ns.Main.prototype.setIsOnline = function( isOnline ) {
@@ -1360,8 +1396,30 @@ var hello = null;
 		*/
 	}
 	
-	ns.Main.prototype.updateAvatar = function( avatar ) {
+	ns.Main.prototype.setTitle = function( title ) {
 		const self = this;
+		if ( null != title )
+			self.title = title;
+		
+		if ( !self.view || !self.title )
+			return;
+		
+		self.view.setTitle( self.title );
+	}
+	
+	ns.Main.prototype.updateIdentity = function() {
+		const self = this;
+		const id = hello.identity;
+		const update = {
+			type : 'identity',
+			data : id,
+		};
+		self.view.send( update );
+	}
+	
+	ns.Main.prototype.updateAvatar = function() {
+		const self = this;
+		const avatar = hello.identity.avatar;
 		const update = {
 			type : 'avatar',
 			data : {
@@ -1375,66 +1433,50 @@ var hello = null;
 	
 	ns.Main.prototype.init = function() {
 		const self = this;
-		const firstLogin = !self.account.lastLogin;
-		if ( firstLogin ) {
-			self.recentHistory = {};
-			const firstLoginConf = {
-				advancedUI : false,
-			};
-			doSetup( firstLoginConf );
+		api.ApplicationStorage.get( 'account-settings' )
+			.then( settingsCacheBack )
+			.catch( err => {
+				console.log( 'app.Main.init - account setting load err', err );
+			});
+		
+		function settingsCacheBack( cache ) {
+			const accSettings = cache.data;
+			if ( !accSettings ) {
+				self.recentHistory = {};
+				self.accSettings = {
+					advancedUI : false,
+				};
+				doSetup();
+			} else {
+				self.accSettings = accSettings;
+				loadRecentHistory();
+			}
 		}
-		else
-			loadRecentHistory();
 		
 		function loadRecentHistory() {
-			api.ApplicationStorage.get( 'recent-history', recentBack );
+			api.ApplicationStorage.get( 'recent-history' )
+				.then( recentBack )
+				.catch( e => {
+					console.log( 'app.Main.init - loadRecentHistory get err', e );
+				});
+			
 			function recentBack( res ) {
 				 self.recentHistory = res.data || {};
 				//self.recentHistory = {};
-				doSetup( null );
+				doSetup();
 			}
 		}
 		
-		function doSetup( firstLoginConf ) {
-			if ( firstLoginConf )
-				self.advancedUI = firstLoginConf.advancedUI;
-			else
-				self.advancedUI = self.account.settings.advancedUI;
-				
-			if ( !!self.account.settings.onNewScreen )
+		function doSetup() {
+			self.advancedUI = self.accSettings.advancedUI;
+			self.state = 'init-done';
+			if ( null != self.openMinimized )
+				self.open();
+			
+			/*
+			if ( !!self.accSettings.onNewScreen )
 				Application.screen = new api.Screen( 'Friend Chat' );
-			
-			const initConf = {
-				fragments     : hello.commonFragments,
-				mainFragments : hello.mainCommonFragments,
-				account       : self.account,
-				identity      : hello.identity,
-				recentHistory : self.recentHistory,
-			};
-			
-			if ( self.advancedUI )
-				self.openAdvView( initConf, viewClose );
-			else
-				self.openSimpleView( initConf, viewClose );
-			
-			self.view.onready = ready;
-			
-			self.bindView();
-			self.setMenuItems();
-			
-			function ready( msg ) {
-				self.initSubViews();
-				hello.account.sendReady( firstLoginConf || null );
-				hello.timeNow( 'main open' );
-			}
-			
-			function viewClose( msg ) {
-				self.view = null;
-				if ( self.isLogout )
-					return;
-				
-				self.quit();
-			}
+			*/
 		}
 	}
 	
@@ -1450,9 +1492,11 @@ var hello = null;
 	ns.Main.prototype.openSimpleView = function( initConf, onClose ) {
 		const self = this;
 		const winConf = {
-			title: hello.config.appName,
-			width : 440,
-			height : 600,
+			title     : hello.config.appName || 'Friend Chat',
+			width     : 440,
+			height    : 600,
+			//mainView  : true,
+			minimized : self.openMinimized || undefined,
 		};
 		
 		self.view = hello.app.createView(
@@ -1467,9 +1511,10 @@ var hello = null;
 	ns.Main.prototype.openAdvView = function( initConf, onClose ) {
 		const self = this;
 		const winConf = {
-			title: hello.config.appName,
-			width : 440,
-			height : 600,
+			title     : hello.config.appName,
+			width     : 440,
+			height    : 600,
+			minimized : self.openMinimized || undefined,
 		};
 		
 		self.view = hello.app.createView(
@@ -1481,16 +1526,22 @@ var hello = null;
 		);
 	}
 	
+	ns.Main.prototype.initView = function() {
+		const self = this;
+		self.updateViewSettings();
+		self.updateIdentity();
+		self.initSubViews();
+		hello.account.sendReady( null );
+	}
+	
 	ns.Main.prototype.bindView = function() {
 		const self = this;
-		self.searchListenId = hello.items.startListen( self.view );
-		
 		self.view.receiveMessage = receiveMessage;
 		self.view.on( 'about', showAbout );
 		self.view.on( 'live', startLive );
 		self.view.on( 'quit', doQuit );
 		self.view.on( 'logout', logout );
-		self.view.on( 'conn-state', connState );
+		//self.view.on( 'conn-state', connState );
 		self.view.on( 'recent-save', recentSave );
 		self.view.on( 'recent-remove', recentRemove );
 		
@@ -1499,7 +1550,7 @@ var hello = null;
 		function showAbout( e ) { hello.about(); }
 		function doQuit( e ) { hello.quit(); }
 		function logout( e ) { hello.logout( e ); }
-		function connState( e ) { hello.handleConnState( e ); }
+		//function connState( e ) { hello.handleConnState( e ); }
 		function recentSave( e ) { self.handleRecentSave( e ); }
 		function recentRemove( e ) { self.handleRecentRemove( e );}
 	}
@@ -1540,7 +1591,6 @@ var hello = null;
 		
 		//checkMobileBrowser();
 		// mobile menu has quit by default
-		console.log( 'window.Application', window.Application );
 		if( 'DESKTOP' === window.Application.deviceType )
 			fileItems.push( quit );
 		
@@ -1615,7 +1665,9 @@ var hello = null;
 		const recent = self.recentHistory;
 		recent[ mId ] = recent[ mId ] || {};
 		recent[ mId ][ cId ] = item.lastEvent || null;
-		api.ApplicationStorage.set( 'recent-history', recent, saveBack );
+		api.ApplicationStorage.set( 'recent-history', recent )
+			.then( saveBack )
+			.catch( saveBack );
 		
 		function saveBack( res ) {
 			self.recentHistory = res.data;
@@ -1631,20 +1683,40 @@ var hello = null;
 			return;
 		
 		delete recent[ mId ][ cId ];
-		api.ApplicationStorage.set( 'recent-history', recent, saveBack );
+		api.ApplicationStorage.set( 'recent-history', recent )
+			.then( saveBack )
+			.catch( saveBack );
+			
 		function saveBack( res ) {
 		}
 	}
 	
+	ns.Main.prototype.updateViewSettings = function() {
+		const self = this;
+		const setts = self.account.settings;
+		const update = {
+			type : 'settings',
+			data : setts,
+		}
+		self.view.send( update );
+	}
+	
 	ns.Main.prototype.initSubViews = function() {
 		const self = this;
+		if ( self.notification ) {
+			console.log( 'initSubViews - already initialized' );
+			return;
+		}
+		
+		const account = self.account;
+		self.searchListenId = hello.items.startListen( self.view );
 		self.notification = new library.system.Notification({
 			parentView : self.view,
 		});
 		
 		hello.account = new library.system.Account({
 			parentView : self.view,
-			account : self.account,
+			account    : account,
 		});
 		
 		hello.module = new library.system.ModuleControl({
@@ -1681,8 +1753,6 @@ var hello = null;
 			self.searchListenId = null;
 		}
 		
-		// this is just to clear out any rogue views
-		// wtf ??????
 		hello.app.close();
 	}
 	

@@ -1,3 +1,12 @@
+<!-- overlay container
+id,
+css,
+-->
+<script id="base-overlay-tmpl" type="text/html">
+<div id="<%= id %>" class="overlay-base <%= css %> <%= hidden %>">
+</div>
+</script>
+
 <!-- search input
 -->
 <script id="search-input-tmpl" type="text/html">
@@ -101,61 +110,73 @@ heigth,
 -->
 <script id="peer-av-tmpl" type="text/html">
 <div id="<%= id %>" class="av-visualizer">
-	<canvas id="<%= canvasId %>" width="<%= width%>"" height="<%= height %>">
+	<canvas id="<%= canvasId %>" width="<%= width%>" height="<%= height %>">
 	</canvas>
 </div>
 </script>
 
 <!-- CONN STATE
-	
+id
 -->
 <script id="conn-state-tmpl" type="text/html">
-<div id="conn-state" class="">
-	<div id="conn-state-head" class="">
-		<div id="conn-state-error-head" class="conn-state-head group row start Danger hidden">
-			<i class="fa fa-fw fa-exclamation-triangle"></i>
-			{i18n_network_error}
-		</div>
-		<div id="conn-state-progress-head" class="conn-state-head group row start Available">
-			<i class="fa fa-fw fa-plug"></i>
-			{i18n_network_connecting}
-		</div>
+<div id="conn-state-container" class="group column start BackgroundDefault">
+	<div id="conn-state-padder" class="fortify">
 	</div>
-	<div id="conn-state-oops" class="paddddd hidden">
-		<div id="conn-state-denied" class="group row hidden">
-			{i18n_access_denied}
-			<button id="conn-state-quit-btn" class="button" type="button">
-				<i class="fa fa-fw fa-close"></i>
-				{i18n_quit}
-			</button>
-		</div>
-		<div id="conn-state-error" class="hidden">
-			<div id="conn-state-error-msg">
-				
+	<div id="conn-state" class="fortify">
+		<div id="conn-state-head" class="">
+			<div 
+				id="conn-state-error-head"
+				class="conn-state-head group row start Danger hidden"
+			>
+				<i class="fa fa-fw fa-exclamation-triangle"></i>
+				{i18n_network_error}
 			</div>
-		</div>
-	</div>
-	<div id="conn-state-yay" class="paddddd">
-		<div id="conn-state-loading" class="group row start hidden">
-			<i class="fa fa-fw fa-circle-o-notch fa-spin"></i>
-			<div>
-				{i18n_loading}
-			</div>
-		</div>
-		<div id="conn-state-connecting" class="group row start hidden">
-			<i class="fa fa-fw fa-circle-o-notch fa-spin"></i>
-			<div>
-				{i18n_connecting}
-			</div>
-		</div>
-		<div id="conn-state-reconnect" class="group row hidden">
-			<button id="conn-state-reconnect-btn" class="button" type="button">
-				<i class="fa fa-fw fa-bolt"></i>
-				{i18n_reconnect}
-			</button>
-			<div id="conn-state-rc-bar-container" class="expand LED">
-				<div id="conn-state-rc-bar" class="On">
+			<div
+				id="conn-state-progress-head"
+				class="conn-state-head group row center"
+			>
+				<div class="busy-loading">
 				</div>
+				<!--<i class="fa fa-fw fa-spinner fa-pulse"></i>
+				{i18n_network_connecting}
+			--></div>
+		</div>
+		<div id="conn-state-oops" class="paddddd hidden">
+			<div id="conn-state-denied" class="group row hidden">
+				{i18n_access_denied}
+				<button id="conn-state-quit-btn" class="button" type="button">
+					<i class="fa fa-fw fa-close"></i>
+					{i18n_quit}
+				</button>
+			</div>
+			<div id="conn-state-error" class="hidden">
+				<div id="conn-state-error-msg">
+					
+				</div>
+			</div>
+		</div>
+		<div id="conn-state-yay" class="paddddd">
+			<div id="conn-state-loading" class="group row start hidden">
+				<div>
+					{i18n_loading}
+				</div>
+			</div>
+			<div id="conn-state-connecting" class="group row start hidden">
+				<div>
+					{i18n_connecting}
+				</div>
+			</div>
+			<div id="conn-state-reconnect" class="hidden">
+				<!--
+				<div id="conn-state-rc-bar-container" class="expand LED">
+					<div id="conn-state-rc-bar" class="On">
+					</div>
+				</div>
+				-->
+				<button id="conn-state-reconnect-btn" class="button" type="button">
+					<i class="fa fa-fw fa-bolt"></i>
+					{i18n_reconnect}
+				</button>
 			</div>
 		</div>
 	</div>
@@ -166,7 +187,7 @@ heigth,
 headString
 -->
 <script id="settings-base-tmpl" type="text/html">
-<div id="hello" class="bar column">
+<div class="full-height bar column">
 	<div id="head" class="BorderBottom center-child hidden">
 		<div><%= headString %></div>
 	</div>
@@ -288,10 +309,7 @@ name,
 </option>
 </script>
 
-
 <!-- viewpane-share-tmpl
-
-
 -->
 <script id="viewpane-share-tmpl" type="text/html">
 <div id="share-view" class="BackgroundDefault ColorDefault">
@@ -542,7 +560,7 @@ src
 <script id="image-expand-tmpl" type="text/html">
 <a href="<%= src %>" target="_blank">
 	<div class="link-expand-image"
-		style="background-image : url(<%= src%>)"
+		style="background-image : url(&#39;<%= src%>&#39;)"
 	></div>
 </a>
 </script>

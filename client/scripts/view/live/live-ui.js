@@ -29,9 +29,13 @@ library.component = library.component || {};
 (function( ns, undefined ) {
 	ns.UI = function( conn, liveConf, localSettings, live ) {
 		const self = this;
+		console.log( 'UI - liveConf', liveConf );
 		library.component.EventEmitter.call( self );
 		
 		self.conn = conn;
+		self.userId = liveConf.userId;
+		self.isPrivate = liveConf.isPrivate;
+		self.isTempRoom = liveConf.isTempRoom;
 		self.localSettings = localSettings;
 		self.guestAvatar = liveConf.guestAvatar;
 		self.rtc = null;
@@ -50,7 +54,7 @@ library.component = library.component || {};
 		self.peerAddQueue = [];
 		
 		self.currentSpeaker = null;
-		self.uiVisible = false;
+		self.uiVisible = true;
 		self.ui = null;
 		self.uiPanes = {};
 		self.panesVisible = 0;
@@ -66,6 +70,13 @@ library.component = library.component || {};
 	
 	// Public
 	
+	ns.UI.prototype.setBrowser = function( browser ) {
+		const self = this;
+		self.browser = browser;
+		if ( 'chrome' !== self.browser )
+			self.screenShareBtn.classList.toggle( 'hidden', true );
+	}
+	
 	ns.UI.prototype.setAudioSink = function( deviceId ) {
 		const self = this;
 		self.audioSinkId = deviceId;
@@ -77,9 +88,69 @@ library.component = library.component || {};
 		}
 	}
 	
+	ns.UI.prototype.restartAudioSinks = function() {
+		const self = this;
+		self.peerIds.forEach( pId => {
+			const peer = self.peers[ pId ];
+			peer.updateAudioSink();
+		});
+	}
+	
+	ns.UI.prototype.showDeviceSelect = function( currentDevices ) {
+		const self = this;
+		console.log( 'UI.showDeviceSelect', currentDevices );
+		self.settingsUI.showDevices( currentDevices )
+		self.settingsUI.show();
+	}
+	
+	ns.UI.prototype.addShareLink = function( conn ) {
+		const self = this;
+		console.log( 'UI.addShareLink', {
+			conn  : conn,
+			btn   : self.shareLinkBtn,
+			slink : self.shareLink,
+		});
+		if ( !self.shareLinkBtn ) {
+			console.log( 'Live UI.addShareLink, no button found' );
+			return;
+		}
+		
+		if ( self.shareLink )
+			return;
+		
+		self.shareLinkBtn.classList.toggle( 'hidden', false );
+		self.shareLink = new library.view.ShareLink( self.shareLinkBtn, conn );
+		self.shareLink.on( 'visible', onVisible );
+		
+		self.shareLinkBtn.addEventListener( 'click', click, false );
+		return self.shareLink;
+		
+		function onVisible( isVisible ) {
+			self.shareLinkBtn.classList.toggle( 'available', isVisible );
+		}
+		
+		function click( e ) {
+			console.log( 'shareLinkBtn click' );
+			self.shareLink.toggle();
+		}
+	}
+	
+	ns.UI.prototype.setRecording = function( isRecording ) {
+		const self = this;
+		console.log( 'setRecording', isRecording );
+		if ( isRecording === self.isRecording )
+			return;
+		
+		self.isRecording = isRecording;
+		if ( !self.recording )
+			return;
+		
+		self.recording.classList.toggle( 'hidden', !self.isRecording );
+	}
+	
 	// Private
 	
-	ns.UI.prototype.init = function() {
+	ns.UI.prototype.init = function( conf ) {
 		var self = this;
 		self.uiPaneMap = {
 			'init-checks'        : library.view.InitChecksPane      ,
@@ -127,6 +198,15 @@ library.component = library.component || {};
 		}
 		
 		self.bindEvents();
+		
+		self.addSettings();
+		let share = null;
+		if ( !self.isPrivate )
+			share = self.addShareLink( self.conn );
+		if ( share && self.isTempRoom )
+			share.show();
+		
+		
 		self.uiVisible = true;
 		self.toggleUI();
 	}
@@ -179,8 +259,10 @@ library.component = library.component || {};
 		self.audioBtn = document.getElementById( 'audio-toggle-btn' );
 		self.hangupBtn = document.getElementById( 'hangup-btn' );
 		self.videoBtn = document.getElementById( 'video-toggle-btn' );
+		self.shareLinkBtn = document.getElementById( 'share-link-btn' );
 		self.settingsBtn = document.getElementById( 'settings-btn' );
 		self.teaseChat = document.getElementById( 'tease-chat-container' );
+		self.recording = document.getElementById( 'recording' );
 		
 		self.uiPaneContainer = document.getElementById( 'live-ui-panes' );
 		self.liveContent = document.getElementById( 'live-content' );
@@ -268,6 +350,10 @@ library.component = library.component || {};
 		
 		// theres is only change in container visibility
 		// at 0 and 1 panes visible
+		console.log( 'toggleUIPanes', {
+			visible    : self.panesVisible,
+			contrainer : self.uiPaneContainer,
+		});
 		if ( self.panesVisible > 1 )
 			return;
 		
@@ -279,8 +365,8 @@ library.component = library.component || {};
 	}
 	
 	ns.UI.prototype.getUIPane = function( id ) {
-		var self = this;
-		var pane = self.uiPanes[ id ];
+		const self = this;
+		const pane = self.uiPanes[ id ];
 		if ( !pane ) {
 			console.log( 'getUIPane - no pane found for id', id );
 			return null;
@@ -290,8 +376,11 @@ library.component = library.component || {};
 	}
 	
 	ns.UI.prototype.hideUIPane = function( id ) {
-		var self = this;
-		var pane = self.getPane( id );
+		const self = this;
+		const pane = self.getPane( id );
+		if( !pane )
+			return;
+		
 		pane.hide();
 	}
 	
@@ -388,6 +477,8 @@ library.component = library.component || {};
 		else {
 			conf.onmenu = onMenuClick;
 			viewPeer = new library.view.Peer( conf );
+			if ( null == self.selfiePopped )
+				self.togglePopped( true );
 		}
 		
 		peer.on( 'video', updateHasVideo );
@@ -402,6 +493,8 @@ library.component = library.component || {};
 		
 		self.updateMenu();
 		self.updateVoiceListMode();
+		
+		viewPeer.on( 'status', showStatus );
 		
 		// start session duration on selfie when the first peer is added
 		if ( self.peerGridOrder.length === 2 )
@@ -423,11 +516,11 @@ library.component = library.component || {};
 		self.updateWaiting();
 		
 		function onDrag( type ) {
-			self.onDrag( type, peer.id );
+			self.onDrag( type, pid );
 		}
 		
 		function onClick( show ) {
-			self.onPeerClickCatch( show, peer.id );
+			self.onPeerClickCatch( show, pid);
 		}
 		
 		function handleRoomQuality( e ) {
@@ -443,12 +536,16 @@ library.component = library.component || {};
 		}
 		
 		function updateHasVideo( hasVideo ) {
-			self.updateHasVideo( peer.id, hasVideo );
+			self.updateHasVideo( pid, hasVideo );
 		}
 		
 		function onMenuClick( e ) {
 			self.menu.show( viewPeer.menuId );
 			self.menuUI.show();
+		}
+		
+		function showStatus( e ) {
+			self.showPeerStatus( pid, e );
 		}
 	}
 	
@@ -481,6 +578,8 @@ library.component = library.component || {};
 		
 		if ( self.peerGridOrder.length === 1 ) {
 			self.peers[ 'selfie' ].stopDurationTimer();
+			self.togglePopped( false );
+			delete self.selfiePopped;
 		}
 		
 		self.updateVoiceListMode();
@@ -809,6 +908,15 @@ library.component = library.component || {};
 		//self.toggleUIMode();
 	}
 	
+	ns.UI.prototype.showPeerStatus = function( peerId, state ) {
+		const self = this;
+		self.statusMsg.showStatus( state, peerId );
+		self.statusMsg.on( peerId, uiClick );
+		function uiClick( event ) {
+			self.statusMsg.removeStatus( peerId );
+		}
+	}
+	
 	ns.UI.prototype.toggleUIMode = function() {
 		var self = this;
 		self.uiVisible = !self.uiVisible;
@@ -842,8 +950,8 @@ library.component = library.component || {};
 			items  : [
 				{
 					type   : 'item',
-					id     : 'q-default',
-					name   : View.i18n( 'i18n_unconstrained' ),
+					id     : 'q-high',
+					name   : View.i18n( 'i18n_high' ),
 					faIcon : 'fa-diamond',
 				},
 				{
@@ -928,7 +1036,7 @@ library.component = library.component || {};
 			id     : 'popped',
 			name   : View.i18n( 'i18n_toggle_popped_selfie' ),
 			faIcon : 'fa-external-link',
-			toggle : true,
+			toggle : false,
 			close  : false,
 		};
 		const speaker = {
@@ -1025,7 +1133,7 @@ library.component = library.component || {};
 		};
 		
 		const content = [
-			share,
+			//share,
 			chat,
 			blind,
 			mute,
@@ -1110,7 +1218,7 @@ library.component = library.component || {};
 		if ( !selfie )
 			return;
 		
-		selfie.togglePopped( force );
+		self.selfiePopped = selfie.togglePopped( force );
 		self.updateSelfieState();
 	}
 	
@@ -1232,27 +1340,27 @@ library.component = library.component || {};
 		}
 	}
 	
-	ns.UI.prototype.addInitChecks = function( conf ) {
+	ns.UI.prototype.initStatusMessage = function() {
 		const self = this;
 		const id = 'init-checks';
-		const Pane = self.uiPaneMap[ id ];
-		const paneConf = {
-			id       : id,
-			parentId : 'init-cover',
-			conf     : conf,
-		};
-		const pane = new Pane( paneConf );
-		const pId = pane.id;
-		pane.on( 'close', onClose );
 		
-		return pane;
+		self.statusMsg = new library.view.StatusMsg();
+		self.statusMsg.on( 'close', onClose );
+		
+		return self.statusMsg;
 		
 		function onClose() {
-			if ( self.cover ) {
-				self.cover.parentNode.removeChild( self.cover );
-				delete self.cover;
-			}
+			delete self.statusMsg;
 		}
+	}
+	
+	ns.UI.prototype.removeCover = function() {
+		const self = this;
+		if ( !self.cover )
+			return;
+		
+		self.cover.parentNode.removeChild( self.cover );
+		delete self.cover;
 	}
 	
 	ns.UI.prototype.addChat = function( userId, identities, conn ) {
@@ -1268,14 +1376,15 @@ library.component = library.component || {};
 			
 			const chatOpen = self.chatUI.toggle();
 			self.chatTease.setActive( chatOpen );
+			self.shareLink.updatePosition();
 		}
 		
 		const conf = {
 			conn        : conn,
 			userId      : userId,
 			identities  : identities,
-			guestAvatar : self.guestAvatar,
 			chatTease   : self.chatTease,
+			guestAvatar : self.guestAvatar,
 		};
 		self.chatUI = self.addUIPane( 'chat', conf );
 		self.chatUI.on( 'visible', onVisible );
@@ -1286,37 +1395,37 @@ library.component = library.component || {};
 		}
 	}
 	
-	ns.UI.prototype.addShare = function( conn ) {
+	ns.UI.prototype.addSettings = function() {
 		const self = this;
-		const conf = {
-			conn : conn,
-		};
-		self.shareUI = self.addUIPane( 'share', conf );
-		return self.shareUI;
-	}
-	
-	ns.UI.prototype.addSettings = function( conf ) {
-		const self = this;
+		console.log( 'addSettings' );
 		if ( !self.settingsBtn ) {
 			console.log( 'UI.addSettings - settingsBtn missing, abort' );
 			return;
 		}
 		
 		self.settingsBtn.addEventListener( 'click', settingsClick, false );
-		self.settingsUI = self.addUIPane( 'source-select', conf );
+		self.settingsUI = new library.view.DeviceSelect( self.settingsBtn, onSelect );
 		self.settingsUI.on( 'visible', onVisible );
 		return self.settingsUI;
 		
 		function settingsClick( e ) {
-			const isOpen = self.settingsUI.getOpen();
-			if ( isOpen )
+			if ( self.settingsShow )
 				self.settingsUI.hide();
 			else
-				self.emit( 'settings' ); 
+				self.emit( 'device-select' );
+			
 		}
 		
 		function onVisible( isVisible ) {
+			console.log( 'settingsUI onVisivle', isVisible );
+			self.settingsShow = isVisible;
 			self.settingsBtn.classList.toggle( 'available', isVisible );
+		}
+		
+		function onSelect( devices ) {
+			console.log( 'UI.settings - onselect', devices );
+			self.settingsUI.hide();
+			self.emit( 'use-devices', devices );
 		}
 	}
 	
@@ -1354,6 +1463,8 @@ library.component = library.component || {};
 (function( ns, undefined ) {
 	ns.Peer = function( conf ) {
 		const self = this;
+		library.component.EventEmitter.call( self );
+		
 		self.id = conf.peer.id;
 		self.peer = conf.peer;
 		self.menu = conf.menu;
@@ -1384,6 +1495,9 @@ library.component = library.component || {};
 		
 		self.init();
 	}
+	
+	ns.Peer.prototype =
+		Object.create( library.component.EventEmitter.prototype );
 	
 	// Public
 	
@@ -1521,14 +1635,41 @@ library.component = library.component || {};
 		self.updateRTC( streamState );
 	}
 	
+	ns.Peer.prototype.reload = function() {
+		const self = this;
+		self.peer.restart();
+	}
+	
 	ns.Peer.prototype.restart = function() {
-		var self = this;
+		const self = this;
 		if ( !self.stream ) {
 			console.log( 'video not set', self.id );
 			return;
 		}
 		
-		self.stream.play();
+		self.playStream();
+		
+	}
+	
+	ns.Peer.prototype.playStream = function() {
+		const self = this;
+		if ( !self.stream )
+			return;
+		
+		self.stream.play()
+			.then( playOk )
+			.catch( playErr );
+			
+		function playOk( e ) {
+			console.log( 'Peer.playStream - ok', e );
+		}
+		
+		function playErr( ex ) {
+			console.log( 'Peer.playStream - ex', {
+				stream : self.stream,
+				ex     : ex,
+			});
+		}
 	}
 	
 	ns.Peer.prototype.buildView = function() {
@@ -1551,12 +1692,16 @@ library.component = library.component || {};
 		// ui
 		self.menuBtn = self.ui.querySelector( '.peer-options' );
 		self.sayStateBtn = self.ui.querySelector( '.say-state' );
+		self.peerReload = self.ui.querySelector( '.peer-reload' );
 		self.streamState = self.ui.querySelector( '.stream-state' );
 		self.remoteMuteState = self.ui.querySelector( '.remote-mute' );
 		self.remoteBlindState = self.ui.querySelector( 'remote-blind' );
 		
 		self.menuBtn.addEventListener( 'click', peerMenuClick, false );
 		function peerMenuClick( e ) { self.showPeerActions(); }
+		
+		self.peerReload.addEventListener( 'click', peerReload, false );
+		function peerReload( e ) { self.reload(); }
 		
 		// closing
 		self.closing = self.ui.querySelector( '.closing' );
@@ -1990,7 +2135,8 @@ library.component = library.component || {};
 	}
 	
 	ns.Peer.prototype.bindPeerCommon = function() {
-		var self = this;
+		const self = this;
+		console.log( 'bindPeerCommon', self );
 		self.peer.on( 'media'           , handleMedia );
 		self.peer.on( 'track'           , handleTrack );
 		self.peer.on( 'legacy-stream'   , handleLegacyStream );
@@ -2006,7 +2152,6 @@ library.component = library.component || {};
 		self.peer.on( 'screen-mode'     , screenMode );
 		self.peer.on( 'screen-share'    , screenShare );
 		self.peer.on( 'local-quality'   , localQuality );
-		
 		
 		function handleMedia( e ) { self.handleMedia( e ); }
 		function handleTrack( e, f ) { self.handleTrack( e, f ); }
@@ -2056,6 +2201,7 @@ library.component = library.component || {};
 	
 	ns.Peer.prototype.handleMedia = function( media ) {
 		const self = this;
+		console.log( 'handleMedia', media );
 		if ( !media )
 			return;
 		
@@ -2130,6 +2276,7 @@ library.component = library.component || {};
 	
 	ns.Peer.prototype.handleTrack = function( type, track ) {
 		const self = this;
+		console.log( 'UIPeer.handleTrack', track );
 		// set state
 		if ( !self.isUpdatingStream ) {
 			self.stream.pause();
@@ -2145,6 +2292,7 @@ library.component = library.component || {};
 		
 		self.stream.srcObject.addTrack( track );
 		self.stream.load();
+		console.log( 'stream.load called' );
 	}
 	
 	ns.Peer.prototype.removeTrack = function( type ) {
@@ -2213,6 +2361,9 @@ library.component = library.component || {};
 			return;
 		
 		self.isAudio = available;
+		if ( self.isAudio )
+			self.updateAudioSink();
+		
 		//self.updateStream();
 		self.updateButtonVisibility();
 	}
@@ -2317,21 +2468,20 @@ library.component = library.component || {};
 		*/
 	}
 	
-	
 	ns.Peer.prototype.setStream = function( id, src ) {
 		const self = this;
 		if ( self.stream )
 			self.removeStream();
 		
 		src = src || '';
-		var conf = {
+		const conf = {
 			id : id,
 			src : src,
 		};
 		
-		var element = document.getElementById( self.id );
-		var container = element.querySelector( '.stream-container' );
-		var RTCInfo = container.querySelector( '.main-rtc' );
+		const peerEl = document.getElementById( self.id );
+		const container = peerEl.querySelector( '.stream-container' );
+		const RTCInfo = container.querySelector( '.main-rtc' );
 		
 		self.stream = hello.template.getElement( 'stream-video-tmpl', conf );
 		self.stream.onloadedmetadata = play;
@@ -2342,13 +2492,14 @@ library.component = library.component || {};
 		self.bindStreamResize();
 		
 		function play( e ) {
+			console.log( 'PLAY', e );
 			self.updateAudioSink();
-			self.stream.play();
+			self.playStream();
 		}
 	}
 	
 	ns.Peer.prototype.removeStream = function() {
-		var self = this;
+		const self = this;
 		if ( !self.stream )
 			return;
 		
@@ -2403,9 +2554,9 @@ library.component = library.component || {};
 	}
 	
 	ns.Peer.prototype.resetState = function() {
-		var self = this;
-		var isMuted = false;
-		var isBlinded = false;
+		const self = this;
+		const isMuted = false;
+		const isBlinded = false;
 		self.toggleMuteState( isMuted );
 		self.toggleRemoteMute( isMuted );
 		self.toggleBlindState( isBlinded );
@@ -2425,6 +2576,9 @@ library.component = library.component || {};
 			console.log( 'setAudioSink - setSinkId is not supported' );
 			return;
 		}
+		
+		if ( !self.isAudio )
+			return;
 		
 		/*
 		if ( self.stream.sinkId === deviceId ) {
@@ -2447,6 +2601,12 @@ library.component = library.component || {};
 				did : deviceId,
 			});
 			self.audioSinkId = null;
+			const status = {
+				type    : 'warning',
+				message : 'WARN_AUDIO_SINK_NOT_ALLOWED',
+				events  : [ 'close' ],
+			};
+			self.emit( 'status', status );
 		}
 	}
 	
@@ -2844,7 +3004,7 @@ library.component = library.component || {};
 		self.screenshareBtn = screenshareBtn;
 		self.selectedStreamQuality = 'normal';
 		
-		self.isPopped = true;
+		self.isPopped = false;
 		self.showDuration = false;
 		
 		ns.Peer.call( this, conf );
@@ -2893,6 +3053,7 @@ library.component = library.component || {};
 		const self = this;
 		self.audioBtn.addEventListener( 'click', audioClick, false );
 		self.videoBtn.addEventListener( 'click', videoClick, false );
+		self.togglePopped( self.isPopped );
 		
 		function audioClick( e ) {
 			self.handleAudioClick();
@@ -3076,9 +3237,22 @@ library.component = library.component || {};
 		if ( !self.stream )
 			return;
 		
+		self.updateVideoMirror();
 		self.stream.muted = true;
 	}
 	
+	ns.Selfie.prototype.updateVideoMirror = function() {
+		const self = this;
+		console.log( 'updateVideoMirror', {
+			screenShare : self.screenShare,
+			el          : self.stream,
+		});
+		
+		if ( !self.stream )
+			return;
+		
+		self.stream.classList.toggle( 'video-mirror', !self.screenShare );
+	}
 	
 	ns.Selfie.prototype.toggleAVGraph = function() {
 		const self = this;
@@ -3177,6 +3351,8 @@ library.component = library.component || {};
 		const self = this;
 		self.screenShare = isActive;
 		self.updateQualityLevel();
+		self.updateVideoMirror();
+		self.doResize();
 		if ( !self.screenshareBtn )
 			return;
 		

@@ -340,14 +340,17 @@ html body #tab-bar .Button
     padding-bottom: 2px;
 }
 
+.hidden-head,
 .module-head {
     overflow : hidden;
+    padding : 0.2em;
 }
 
 .module-head .actions {
     margin-right : 4px;
 }
 
+.hidden-title,
 .module-title {
     line-height   : 2em;
     font-size     : 120%;
@@ -487,6 +490,11 @@ html body #tab-bar .Button
     overflow : hidden;
 }
 
+.recent-waiting-spinny {
+    padding   : 2em 0;
+    font-size : 180%;
+}
+
 #hello .recent-item {
     padding-top    : 0.4em;
     padding-bottom : 0.2em;
@@ -502,12 +510,10 @@ html body #tab-bar .Button
     background-size     : cover;
 }
 
-
 .room .avatar,
 .recent-room .avatar {
     border-radius : 2px;
 }
-
 
 .recent-item .recent-info {
     overflow : hidden;

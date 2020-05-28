@@ -30,7 +30,7 @@ library.component = library.component || {};
 (function( ns, undefined ) {
 	ns.Init = function( viewConf ) {
 		const self = this;
-		
+		console.log( 'viewConf', viewConf );
 		self.conn = window.View;
 		self.rtc = null;
 		self.ui = null;
@@ -44,12 +44,7 @@ library.component = library.component || {};
 	// Private
 	ns.Init.prototype.init = function() {
 		const self = this;
-		self.appOnline = new library.component.AppOnline( window.View );
-		
-		const fragments = document.getElementById( 'fragments' );
-		let fragStr = fragments.innerHTML;
-		fragStr = View.i18nReplaceInString( fragStr );
-		hello.template = new friendUP.gui.TemplateManager( fragStr );
+		hello.template = friend.template;
 		
 		//
 		const dropConf = {
@@ -63,30 +58,66 @@ library.component = library.component || {};
 		
 		//
 		self.conn.on( 'focus', focus );
-		self.conn.on( 'initialize', initialize );
+		self.conn.on( 'initialize', e => self.initialize( e ));
 		self.conn.on( 'restore', restore );
 		self.conn.on( 'closeview', closeView );
 		
 		function focus( e ) {}
-		function initialize( e ) { self.initialize( e ); }
 		function restore( e ) { self.handleRestore( e ); }
 		function closeView( e ) {
 			self.closeAllTheThings( e );
 		}
 		
 		//
+		/*
 		const loaded = {
 			type : 'loaded',
 			data : 'pølse',
 		};
 		self.conn.send( loaded );
+		*/
+		window.View.loaded();
+	}
+	
+	ns.Init.prototype.preInit = function( initConf ) {
+		const self = this;
+		throw new Error( 'no u' );
+		
+		const honk = document.getElementById( 'honk' );
+		honk.play()
+			.then( honkOk )
+			.catch( honkEx );
+		
+		function honkOk( e ) {
+			console.log( 'honkOk' );
+			if ( self.pContainer ) {
+				self.pContainer.classList.toggle( 'hidden', true );
+			}
+			
+			const initCover = document.getElementById( 'init-cover' );
+			initCover.classList.toggle( 'hidden', false );
+			self.initialize( initConf );
+		}
+		
+		function honkEx( ex ) {
+			console.log( 'honkEx', ex );
+			self.pContainer = document.getElementById( 'play-container' );
+			self.pContainer.classList.toggle( 'hidden', false );
+			const playBtn = document.getElementById( 'play-btn' );
+			playBtn.addEventListener( 'click', pClick, false );
+		}
+		
+		function pClick( e ) {
+			console.log( 'pClick', e );
+			self.preInit( initConf );
+		}
 	}
 	
 	ns.Init.prototype.initialize = function( data ) {
 		const self = this;
-		hello.template.addFragments( data.fragments );
+		console.log( 'Live.initalize', data );
+		//hello.template.addFragments( data.fragments );
 		hello.template.addFragments( data.liveFragments );
-		
 		//
 		hello.parser = new library.component.parse.Parser();
 		hello.parser.use( 'LinkStd' );
@@ -96,15 +127,26 @@ library.component = library.component || {};
 		delete data.fragments;
 		delete data.emojii;
 		
-		// prepare ui state
-		let liveConf = data.liveConf;
-		let localSettings = liveConf.localSettings;
+		const liveConf = data.liveConf;
+		const localSettings = liveConf.localSettings;
 		
 		// init ui
-		self.ui = new library.view.UI( self.conn, liveConf, localSettings, self );
+		let UI = library.view.UI;
+		if ( liveConf.isStream )
+			UI = library.view.UIStream;
+		
+		self.ui = new UI(
+			self.conn,
+			liveConf,
+			localSettings
+		);
 		
 		// init Model
-		self.rtc = new library.rtc.RTC(
+		let RTC = library.rtc.RTC;
+		if ( liveConf.isStream )
+			RTC = library.rtc.RTCStream;
+		
+		self.rtc = new RTC(
 			self.conn,
 			self.ui,
 			liveConf,
@@ -113,7 +155,8 @@ library.component = library.component || {};
 		);
 		
 		function onready( err ) {
-			self.conn.send({ type : 'ready' });
+			console.log( 'Live onready' );
+			window.View.ready();
 		}
 		
 		function onclose() {

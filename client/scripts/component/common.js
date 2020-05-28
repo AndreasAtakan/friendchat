@@ -31,9 +31,10 @@ to listeners registered through this interface
 */
 
 (function( ns, undefined ) {
-	ns.EventEmitter = function( eventSink ) {
+	ns.EventEmitter = function( eventSink, debug ) {
 		const self = this;
 		self._eventSink = eventSink;
+		self._eventsDebug = !!debug;
 		self.eventToListener = {};
 		self.eventListeners = {};
 		
@@ -46,6 +47,12 @@ to listeners registered through this interface
 	ns.EventEmitter.prototype.on = function( event, listener ) {
 		const self = this;
 		const id = friendUP.tool.uid( 'listener' );
+		if ( self._eventsDebug )
+			console.log( 'EventEmitter.on', {
+				id    : id,
+				event : event,
+			});
+		
 		const listenerIds = self.eventToListener[ event ];
 		if ( !listenerIds ) {
 			self.eventToListener[ event ] = [];
@@ -129,28 +136,37 @@ to listeners registered through this interface
 		const args = self._getArgs( arguments );
 		const event = args.shift();
 		const listenerIds = self.eventToListener[ event ];
-		let caught = false;
+		let caught = true;
 		if ( !listenerIds || !listenerIds.length ) {
 			if ( self._eventSink )
 				emitOnDefault( event, args );
 			
-			return caught;
+			if ( self._eventsDebug )
+				console.log( 'EventEmitter.emit - no listener for', {
+					event : event,
+					args  : args,
+				});
+			
+			return false;
 		}
 		
-		caught = listenerIds.reduce( emit, false );
+		caught = listenerIds.reduce( emit, true );
 		return caught;
 		
 		function emit( caught, listenerId ) {
 			const listener = self.eventListeners[ listenerId ];
-			if ( 'function' !== typeof( listener )) {
-				if ( self._eventSink )
-					emitOnDefault( event, args );
-				
-				return caught;
-			}
+			if ( self._eventsDebug )
+				console.log( 'EventEmitter.emit - emitting', {
+					event    : event,
+					args     : args,
+					listener : listener,
+				});
 			
-			listener.apply( null, args );
-			return true;
+			const used = listener.apply( null, args );
+			if ( undefined == used )
+				return caught;
+			
+			return used;
 		}
 		
 		function emitOnDefault( type, args ) {
@@ -199,14 +215,15 @@ inherits from EventEmitter
 		type,
 		conn,
 		eventSink,
-		onsend
+		onsend,
+		debug
 	) {
 		const self = this;
 		self.type = type || null;
 		self.conn = conn || null;
 		self.onsend = onsend;
 		
-		ns.EventEmitter.call( self, eventSink );
+		ns.EventEmitter.call( self, eventSink, debug );
 		self.initEventNode();
 	}
 	
@@ -217,8 +234,11 @@ inherits from EventEmitter
 	// to root
 	ns.EventNode.prototype.send = function( event ) {
 		const self = this;
-		if ( !self.sendEvent )
+		if ( !self.sendEvent ) {
+			if ( self._eventsDebug )
+				console.log( 'EventNode.send - no sendEvent fun??', event );
 			return;
+		}
 		
 		let wrap = null;
 		if ( !self.type )
@@ -228,6 +248,12 @@ inherits from EventEmitter
 				type : self.type,
 				data : event,
 			};
+		
+		if ( self._eventsDebug )
+			console.log( 'EventNode.send', {
+				event : event,
+				wrap  : wrap,
+			});
 		
 		self.sendEvent( wrap );
 	}
@@ -255,6 +281,12 @@ inherits from EventEmitter
 	
 	ns.EventNode.prototype.initEventNode = function() {
 		const self = this;
+		if ( self._eventsDebug )
+			console.log( 'initEventNode', {
+				type : self.type,
+				conn : self.conn,
+			});
+		
 		if ( self.conn && self.type ) {
 			self.conn.on( self.type, handle );
 			function handle( e ) { self.handle( e ); }
@@ -315,7 +347,6 @@ inherits from EventEmitter
 				data      : request,
 			};
 			
-			console.log( 'RQ.request', reqWrap );
 			self.sendEvent( reqWrap );
 			
 			function handleResponse( error, response ) {
@@ -354,9 +385,17 @@ inherits from EventEmitter
 		const self = this;
 		const reqId = event.requestId;
 		const request = event.data;
-		self.callListener( req )
-			.then( response )
-			.catch( error );
+		try {
+			self.callListener( request )
+				.then( response )
+				.catch( error );
+		} catch( ex ) {
+			console.trace( 'handleRequest - callListener ex', {
+				ex    : ex,
+				event : event,
+				self  : self,
+			});
+		}
 		
 		function response( data ) {
 			const res = {
@@ -379,7 +418,6 @@ inherits from EventEmitter
 	
 	ns.RequestNode.prototype.handleResponse = function( event ) {
 		const self = this;
-		console.log( 'RQ.handleResponse', event );
 		const reqId = event.requestId;
 		const err = event.error || null;
 		const res = err ? null : ( event.response || null );
@@ -397,10 +435,6 @@ inherits from EventEmitter
 	
 	ns.RequestNode.prototype.callListener = function( req ) {
 		const self = this;
-		console.log( 'callListener', {
-			type : self.type,
-			req  : req,
-		});
 		const type = req.type;
 		const data = req.data;
 		const listeners = self.eventToListener[ type ];
@@ -522,10 +556,8 @@ inherits from EventEmitter
 // IDENTITY
 (function( ns, undefined ) {
 	ns.Identity = function( conf ) {
-		if ( !( this instanceof ns.Identity ))
-			return new ns.Identity( conf );
-		
 		const self = this;
+		
 		self.init( conf );
 	}
 	
@@ -545,10 +577,18 @@ inherits from EventEmitter
 	
 	ns.Identity.prototype.init = function( conf ) {
 		const self = this;
-		if ( conf.UniqueID || conf.ID )
-			self.fromFCUser( conf );
+		let id = null;
+		try {
+			id = JSON.parse( JSON.stringify( conf ));
+		} catch( ex ) {
+			console.log( 'Identity.ini - failed to copy id', conf );
+			return;
+		}
+		
+		if ( id.UniqueID || id.ID )
+			self.fromFCUser( id );
 		else
-			self.fromIdentity( conf );
+			self.fromIdentity( id );
 		
 	}
 	
@@ -560,9 +600,8 @@ inherits from EventEmitter
 		self.name    = library.tool.htmlDecode( conf.FullName );
 		self.alias   = conf.Name;
 		self.email   = conf.Email;
-		self.avatar  = conf.Image; // || self.avatar;
+		self.avatar  = conf.Image;
 		self.level   = conf.Level;
-		
 	}
 	
 	ns.Identity.prototype.fromIdentity = function( conf ) {
@@ -573,7 +612,7 @@ inherits from EventEmitter
 			FullName : conf.name,
 			Name     : conf.alias,
 			Email    : conf.email,
-			Image    : conf.avatar, // || self.avatar,
+			Image    : conf.avatar,
 			Level    : conf.level,
 		};
 		
@@ -582,7 +621,7 @@ inherits from EventEmitter
 		self.name    = conf.name;
 		self.alias   = conf.alias;
 		self.email   = conf.email;
-		self.avatar  = conf.avatar, // || self.avatar;
+		self.avatar  = conf.avatar;
 		self.level   = conf.level;
 	}
 	
@@ -762,6 +801,9 @@ inherits from EventEmitter
 		
 		if ( 'online' === update.type )
 			current.isOnline = user.isOnline;
+		
+		if ( 'fIsDisabled' === update.type )
+			current.fIsDisabled = update.fIsDisabled;
 	}
 	
 	ns.IdCache.prototype.read = function( clientId ) {
@@ -931,21 +973,21 @@ inherits from EventEmitter
 		if ( notify )
 			self.emit( 'notify', true );
 		
-		self.setStatus( 'Available' );
+		self.setStatus();
 		self.inc.classList.toggle( 'hidden', false );
 		self.current = self.inc;
 	}
 	
 	ns.CallStatus.prototype.setOutgoing = function() {
 		const self = this;
-		self.setStatus( 'Available' );
+		self.setStatus();
 		self.out.classList.toggle( 'hidden', false );
 		self.current = self.out;
 	}
 	
 	ns.CallStatus.prototype.setLive = function() {
 		const self = this;
-		self.setStatus( 'DangerText' );
+		self.setStatus();
 	}
 	
 	ns.CallStatus.prototype.setStatus = function( status ) {
