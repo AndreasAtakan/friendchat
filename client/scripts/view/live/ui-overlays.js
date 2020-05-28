@@ -93,11 +93,17 @@ library.component = library.component || {};
 		const pEl = self.peers[ peerId ];
 		const wId = self.wrapMap[ peerId ];
 		console.log( 'ThumbGrid.swapIn', {
-			pId : peerId,
-			pEl : pEl,
+			pId   : peerId,
+			pEl   : pEl,
 			peers : self.peers,
-			wId : wId,
+			wId   : wId,
 		});
+		if ( !pEl || !wId ) {
+			console.trace( 'ThumbGrid.swapIn - missing things', self );
+			debugger;
+			return;
+		}
+		
 		const wrap = document.getElementById( wId );
 		const stream = wrap.querySelector( '.stream' );
 		stream.appendChild( pEl );

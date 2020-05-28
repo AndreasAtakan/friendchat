@@ -751,7 +751,8 @@ library.rtc = library.rtc || {};
 		media,
 		rtcConf,
 		opts,
-		peerName
+		peerName,
+		browser
 	) {
 		const self = this;
 		library.component.EventEmitter.call( self );
@@ -768,6 +769,8 @@ library.rtc = library.rtc || {};
 		self.peerId = opts.peerId || null;
 		self.bundlePolicy = opts.bundlePolicy || null;
 		self.peerName = peerName || '';
+		self.browser = browser || 'chrome';
+		
 		self.log( 'Session', type );
 		
 		// peer connection, holder of streams
@@ -1203,6 +1206,7 @@ library.rtc = library.rtc || {};
 			return;
 		}
 		
+		//self.stats = new library.rtc.RTCStats( self.browser, self.conn );
 		self.statsInterval = window.setInterval( emitStats, self.statsRate );
 		function emitStats() {
 			self.emitStats();
@@ -1222,6 +1226,7 @@ library.rtc = library.rtc || {};
 			return;
 		}
 		
+		self.statsStart = Date.now();
 		self.conn.getStats()
 			.then( success )
 			.catch( error );
@@ -2634,6 +2639,41 @@ library.rtc = library.rtc || {};
 		
 		const str = friendUP.tool.stringify( event );
 		self.conn.send( str );
+	}
+	
+})( library.rtc );
+
+(function( ns, undefined ) {
+	ns.RTCStats = function( browser, rtcConn ) {
+		const self = this;
+		self.browser = browser;
+		self.rtcConn = rtcConn;
+		
+		library.component.EventEmitter.call( self );
+		
+		self.init();
+	}
+	
+	ns.RTCStats.prototype.close = function() {
+		const self = this;
+		if ( null != self.quickInterval ) {
+			window.clearInterval( self.quickInterval );
+			delete self.quickInterval;
+		}
+		
+		if ( null != self.fullInterval ) {
+			window.clearInterval( self.fullInterval );
+			delete self.fullInterval;
+		}
+		
+		delete self.browser;
+		delete self.rtcConn;
+	}
+	
+	ns.RTCStats.prototype = Object.create( library.component.EventEmitter.prototype );
+	
+	ns.RTCStats.prototype.init = function() {
+		
 	}
 	
 })( library.rtc );
