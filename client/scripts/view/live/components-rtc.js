@@ -1435,6 +1435,12 @@ library.rtc = library.rtc || {};
 				type : 'stats',
 				data : res,
 			};
+			if ( null != self.statsStart ) {
+				const now = Date.now();
+				const total = now - self.statsStart;
+				console.log( 'stats processing ms', total );
+			}
+			
 			self.emit( 'stats', event );
 		}
 		
