@@ -2710,7 +2710,17 @@ library.rtc = library.rtc || {};
 		if ( !self.rtcConn )
 			return;
 		
-		self.rtcConn.
+		self.rtcConn.getStats()
+			.then( statsBack )
+			.catch( bonk );
+		
+		function bonk( err ) {
+			console.log( 'RTCStats.getStats - failed to get stats', err );
+		}
+		
+		function statsBack( raw ) {
+			console.log( 'RTCStats statsBack', raw );
+		}
 	}
 	
 })( library.rtc );
