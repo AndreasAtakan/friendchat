@@ -1232,6 +1232,12 @@ library.rtc = library.rtc || {};
 			.catch( error );
 		
 		function success( stats ) {
+			if ( null != self.statsStart ) {
+				const now = Date.now();
+				const total = now - self.statsStart;
+				console.log( 'stats processing, api call returned', total );
+			}
+			
 			const byType = {};
 			const byId = {};
 			stats.forEach( item => { 
@@ -1438,7 +1444,7 @@ library.rtc = library.rtc || {};
 			if ( null != self.statsStart ) {
 				const now = Date.now();
 				const total = now - self.statsStart;
-				console.log( 'stats processing ms', total );
+				console.log( 'stats processing ends', total );
 			}
 			
 			self.emit( 'stats', event );
@@ -1816,7 +1822,7 @@ library.rtc = library.rtc || {};
 		if ( 'have-local-offer' === self.conn.signalingState )
 			self.inOfferProcess = true;
 		
-		var desc = {
+		const desc = {
 			type : 'sdp',
 			data : self.conn.localDescription,
 		};
@@ -2655,6 +2661,9 @@ library.rtc = library.rtc || {};
 		self.browser = browser;
 		self.rtcConn = rtcConn;
 		
+		self.quickRate = 100;
+		self.fullRate = 1000 * 3;
+		
 		library.component.EventEmitter.call( self );
 		
 		self.init();
@@ -2679,7 +2688,29 @@ library.rtc = library.rtc || {};
 	ns.RTCStats.prototype = Object.create( library.component.EventEmitter.prototype );
 	
 	ns.RTCStats.prototype.init = function() {
+		const self = this;
+		if ( !self.rtcConn ) {
+			console.log( 'RTCStats.init - no rtcConn' );
+			return;
+		}
 		
+		if ( !self.rtcConn.getStats ) {
+			console.log( 'RTCStats - rtcConn does not have .getStats()', self.rtcConn );
+			return;
+		}
+		
+		self.quickInterval = window.setInterval( getStats, self.quickRate );
+		function getStats() {
+			self.getStats();
+		}
+	}
+	
+	ns.RTCStats.prototype.getStats = function() {
+		const self = this;
+		if ( !self.rtcConn )
+			return;
+		
+		self.rtcConn.
 	}
 	
 })( library.rtc );

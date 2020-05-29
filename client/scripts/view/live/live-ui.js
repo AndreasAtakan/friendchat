@@ -896,8 +896,6 @@ library.component = library.component || {};
 		else
 			disable();
 		
-		self.updateThumbsGrid();
-		
 		function enable() {
 			self.thumbGrid.show();
 		}
